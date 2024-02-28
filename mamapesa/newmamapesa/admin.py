@@ -31,7 +31,7 @@ from .models import CustomUser
 
 class CustomUserAdmin(UserAdmin): 
     model = CustomUser
-    list_display = ['email', 'username',]
+    list_display = ['username',]
     # fieldsets = UserAdmin.fieldsets + (
     #     (None, {'fields': ('custom_field',)}),  # Add your custom fields in this tuple
     # )
