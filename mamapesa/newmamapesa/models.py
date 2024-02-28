@@ -2,18 +2,28 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.contrib.auth.models import AbstractUser, Group, Permission
+from django.conf import settings
 
 
 class CustomUser(AbstractUser):
     phonenumber = models.CharField(max_length=15, blank=True, null=True)
-    idnumber = models.CharField(max_length=20, unique=True)
-    trustscore = models.IntegerField(default=0)
+    # idnumber = models.CharField(max_length=20, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     groups = models.ManyToManyField(Group, related_name='customuser_set')
     user_permissions = models.ManyToManyField(Permission, related_name='customuser_set')
     def __str__(self):
         return self.username
+    
+class UserDetails(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='details')
+    identification_number = models.CharField(max_length=20, unique=True, null=False, blank=False)
+    phone_number = models.CharField(max_length=15)
+    nationality = models.CharField(max_length=50)
+    physical_address = models.TextField()
+    
+    def __str__(self):
+        return f"Details for {self.user.username}"
     
 class TrustScore(models.Model):
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
@@ -91,31 +101,58 @@ class LoanItem(models.Model):
     class Meta:
         unique_together = ('loan', 'item')
         
-class Payment(models.Model):
-    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='payments')
+# class Payment(models.Model):
+#     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='payments')
+#     amount = models.DecimalField(max_digits=10, decimal_places=2)
+#     date = models.DateField(default=timezone.now)
+#     description = models.TextField(blank=True, null=True)
+#     is_loan_payment = models.BooleanField(default=False)
+#     is_savings_payment = models.BooleanField(default=False)
+#     loan = models.ForeignKey('Loan', on_delete=models.SET_NULL, null=True, blank=True, related_name='loan_payments')
+#     savings = models.ForeignKey('Savings', on_delete=models.SET_NULL, null=True, blank=True, related_name='savings_payments')
+#     payment_method = models.CharField(max_length=50, blank=True, null=True)
+#     reference_number = models.CharField(max_length=50, blank=True, null=True)
+#     is_successful = models.BooleanField(default=True)
+
+#     def __str__(self):
+#         return f"Payment by {self.user.username} on {self.date} - Amount: {self.amount}"
+
+#     class Meta:
+#         constraints = [
+#             models.CheckConstraint(
+#                 check=models.Q(is_loan_payment=True, is_savings_payment=False) |
+#                        models.Q(is_loan_payment=False, is_savings_payment=True),
+#                 name='payment_for_loan_or_savings_only'
+#             ),
+#         ]
+        
+class SavingsPayment(models.Model):
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='savings_payments')
+    savings = models.ForeignKey('Savings', on_delete=models.CASCADE, related_name='payments')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateField(default=timezone.now)
     description = models.TextField(blank=True, null=True)
-    is_loan_payment = models.BooleanField(default=False)
-    is_savings_payment = models.BooleanField(default=False)
-    loan = models.ForeignKey('Loan', on_delete=models.SET_NULL, null=True, blank=True, related_name='loan_payments')
-    savings = models.ForeignKey('Savings', on_delete=models.SET_NULL, null=True, blank=True, related_name='savings_payments')
     payment_method = models.CharField(max_length=50, blank=True, null=True)
     reference_number = models.CharField(max_length=50, blank=True, null=True)
     is_successful = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"Payment by {self.user.username} on {self.date} - Amount: {self.amount}"
+        return f"Savings Payment by {self.user.username} on {self.date} - Amount: {self.amount}"
+    
+class LoanPayment(models.Model):
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='loan_payments')
+    loan = models.ForeignKey('Loan', on_delete=models.CASCADE, related_name='payments')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    date = models.DateField(default=timezone.now)
+    description = models.TextField(blank=True, null=True)
+    payment_method = models.CharField(max_length=50, blank=True, null=True)
+    reference_number = models.CharField(max_length=50, blank=True, null=True)
+    is_successful = models.BooleanField(default=True)
 
-    class Meta:
-        constraints = [
-            models.CheckConstraint(
-                check=models.Q(is_loan_payment=True, is_savings_payment=False) |
-                       models.Q(is_loan_payment=False, is_savings_payment=True),
-                name='payment_for_loan_or_savings_only'
-            ),
-        ]
-        
+    def __str__(self):
+        return f"Loan Payment by {self.user.username} on {self.date} - Amount: {self.amount}"
+    
+    
 class Transaction(models.Model):
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='transactions')
     amount = models.DecimalField(max_digits=10, decimal_places=2)

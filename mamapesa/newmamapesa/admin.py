@@ -1,9 +1,10 @@
 from django.contrib import admin
-from .models import TrustScore, Savings, Loan, Item, LoanItem, Payment, Transaction, SavingsItem
+from .models import TrustScore, Savings, Loan, Item, LoanItem, Transaction, SavingsItem
 from django.contrib.auth.admin import UserAdmin
+from .models import SavingsPayment, LoanPayment
 
 admin.site.register(TrustScore)
-admin.site.register(Payment)
+# admin.site.register(Payment)
 admin.site.register(Transaction)
 admin.site.register(LoanItem)
 # customized
@@ -31,7 +32,7 @@ from .models import CustomUser
 
 class CustomUserAdmin(UserAdmin): 
     model = CustomUser
-    list_display = ['email', 'username',]
+    list_display = [ 'username',]
     # fieldsets = UserAdmin.fieldsets + (
     #     (None, {'fields': ('custom_field',)}),  # Add your custom fields in this tuple
     # )
@@ -41,3 +42,22 @@ class CustomUserAdmin(UserAdmin):
 
 admin.site.register(CustomUser, CustomUserAdmin)   
 
+
+@admin.register(SavingsPayment)
+class SavingsPaymentAdmin(admin.ModelAdmin):
+    list_display = ('user', 'savings', 'amount', 'date', 'is_successful')
+    list_filter = ('is_successful',)
+    search_fields = ('user__username', 'savings__id', 'reference_number')
+
+@admin.register(LoanPayment)
+class LoanPaymentAdmin(admin.ModelAdmin):
+    list_display = ('user', 'loan', 'amount', 'date', 'is_successful')
+    list_filter = ('is_successful',)
+    search_fields = ('user__username', 'loan__id', 'reference_number')
+
+from .models import UserDetails
+
+@admin.register(UserDetails)
+class UserDetailsAdmin(admin.ModelAdmin):
+    list_display = ['user', 'identification_number', 'phone_number', 'nationality', 'physical_address']
+    search_fields = ['user__username', 'identification_number', 'phone_number']
