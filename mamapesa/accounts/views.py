@@ -9,11 +9,13 @@ from rest_framework.response import Response
 from django.contrib.auth import authenticate, login
 from rest_framework.authtoken.models import Token
 from django.http import JsonResponse
-from .serializers import UserSerializer
+from .serializers import UserSerializer, UserRegisterSerializer
 from django.shortcuts import get_object_or_404
 from newmamapesa.models import CustomUser
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view
+
 
 # Create your views here.
 
@@ -64,3 +66,44 @@ class TestView(APIView):
 # class LogoutView(APIView):
 #     def
 #     request.user.auth_token.delete()
+
+# Create your views here.
+@api_view(['POST'])
+def user_registration(request):
+    if request.method == 'POST':
+        serializer = UserRegisterSerializer(data = request.data)
+
+        data = {}
+
+        if serializer.is_valid():
+            account = serializer.save()
+
+            data['response'] = 'Account has been Succesfully created'
+            data['username'] = account.username
+            data['email'] = account.email
+
+            token, created = Token.objects.get_or_create(user=account)
+            data['token'] = token.key
+        else:
+            data = serializer.errors
+
+        return Response(data)    
+
+# class UserLoginView(APIView):
+#     def post(self, request):
+#         serializer = UserLoginSerializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+#         user = serializer.validated_data['user']
+#         token, created = Token.objects.get_or_create(user=user)
+
+#         if not created:
+#             # Token already exists, no need to create a new one
+#             # You can handle this situation if needed
+#             pass
+
+#         return Response({
+#             'token': token.key,
+#             'username': user.username,
+#             'email': user.email
+#         }, status=status.HTTP_200_OK)    
+

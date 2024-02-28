@@ -6,9 +6,14 @@ from django.contrib.auth.models import AbstractUser, Group, Permission
 
 class CustomUser(AbstractUser):
     phonenumber = models.CharField(max_length=15, blank=True, null=True)
+<<<<<<< HEAD
     idnumber = models.CharField(max_length=20, unique=True, blank=True, null=True)
     email=models.EmailField(null=True, blank=True)
     trustscore = models.IntegerField(default=0)
+=======
+    idnumber = models.CharField(max_length=20, unique=True)
+    # trustscore = models.IntegerField(default=0)
+>>>>>>> 93ab2cef756ccefa791414084b892022eced804e
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     groups = models.ManyToManyField(Group, related_name='customuser_set')
@@ -17,7 +22,11 @@ class CustomUser(AbstractUser):
         return self.username
     
 class TrustScore(models.Model):
+<<<<<<< HEAD
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='their_trust_score')
+=======
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+>>>>>>> 93ab2cef756ccefa791414084b892022eced804e
     score = models.IntegerField()
     is_blacklisted = models.BooleanField(default=False)
     comment = models.TextField(blank=True, null=True)
