@@ -33,12 +33,7 @@ from .models import CustomUser
 class CustomUserAdmin(UserAdmin): 
     model = CustomUser
     list_display = [ 'username',]
-    # fieldsets = UserAdmin.fieldsets + (
-    #     (None, {'fields': ('custom_field',)}),  # Add your custom fields in this tuple
-    # )
-    # add_fieldsets = UserAdmin.add_fieldsets + (
-    #     (None, {'fields': ('custom_field',)}),  # Add your custom fields here for the create user page
-    # )
+  
 
 admin.site.register(CustomUser, CustomUserAdmin)   
 
