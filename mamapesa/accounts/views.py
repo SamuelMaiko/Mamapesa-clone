@@ -71,24 +71,25 @@ class TestView(APIView):
 @api_view(['POST'])
 def user_registration(request):
     if request.method == 'POST':
-        serializer = UserRegisterSerializer(data = request.data)
-
-        data = {}
+        serializer = UserRegisterSerializer(data=request.data)
 
         if serializer.is_valid():
             account = serializer.save()
 
-            data['response'] = 'Account has been Succesfully created'
-            data['username'] = account.username
-            data['email'] = account.email
+            data = {
+                'response': 'Account has been successfully created',
+                'username': account.username,
+                'email': account.email,
+            }
 
-            token, created = Token.objects.get_or_create(user=account)
-            data['token'] = token.key
+            return Response(data, status=status.HTTP_201_CREATED)
         else:
-            data = serializer.errors
+            data = {
+                'error': 'Invalid data',
+                'errors': serializer.errors
+            }
 
-        return Response(data)    
-
+            return Response(data, status=status.HTTP_400_BAD_REQUEST)
 # class UserLoginView(APIView):
 #     def post(self, request):
 #         serializer = UserLoginSerializer(data=request.data)

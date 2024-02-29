@@ -2,7 +2,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.contrib.auth.models import AbstractUser, Group, Permission
-
+from decimal import Decimal
 
 class CustomUser(AbstractUser):
     phonenumber = models.CharField(max_length=15, blank=True, null=True)
@@ -11,8 +11,18 @@ class CustomUser(AbstractUser):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     groups = models.ManyToManyField(Group, related_name='customuser_set')
+    loan_limit = models.DecimalField(max_digits=10, decimal_places=2, default=8000)  # Add loan_limit field
+    interest_rate = models.DecimalField(max_digits=5, decimal_places=2, default=5)  # Add interest_rate field
     user_permissions = models.ManyToManyField(Permission, related_name='customuser_set')
+
+    def save(self, *args, **kwargs):
+       
+        if self.loan_limit is None or self.loan_limit == 0:
+            self.loan_limit = 8000
+        super().save(*args, **kwargs)
+
     def __str__(self):
+
         return self.username
     
 class TrustScore(models.Model):
@@ -62,9 +72,42 @@ class Loan(models.Model):
     grace_period_months = models.IntegerField(default=0)
     overdue_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     penalty_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    overdue_rate = models.DecimalField(max_digits=5, decimal_places=2, default=5)
+    due_date = models.DateField(null=True, blank=True)  # Add due_date field
+    repayments = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    def calculate_remaining_amount(self):
+        return max(self.amount - self.repaid_amount, 0)
+
+    def make_repayment(self, amount_paid):
+        remaining_amount = self.calculate_remaining_amount()
+        if amount_paid > remaining_amount:
+            excess_amount = amount_paid - remaining_amount
+            amount_paid = remaining_amount
+
+        self.repaid_amount += amount_paid
+        self.total_paid += amount_paid
+        self.repayments += amount_paid
+        self.save()
+
+        if self.repaid_amount == self.amount:
+            self.is_active = False
+            self.save()
+
+        return amount_paid
+    def get_remaining_balance(self):
+        return self.amount - self.repaid_amount
 
     def __str__(self):
         return f"Loan for {self.user.username} - Amount: {self.amount}"
+
+
+class LoanRepayment(models.Model):
+    loan = models.ForeignKey(Loan, on_delete=models.CASCADE, related_name='loan_repayments')  # Corrected related_name
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return f"Repayment of {self.amount_paid} for Loan {self.loan.id}"
     
 class Item(models.Model):
     name = models.CharField(max_length=255)
