@@ -22,7 +22,8 @@ class LoanAdmin(admin.ModelAdmin):
 admin.site.register(Loan, LoanAdmin)
 
 class SavingsAdmin(admin.ModelAdmin):
-    list_display = ('user', 'amount_saved', 'start_date', 'end_date', 'in_progress')
+    # list_display = ('user', 'amount_saved', 'start_date', 'end_date', 'in_progress')
+    list_display = ('user', 'amount_saved', 'start_date')
     list_filter = ('is_active',)
     search_fields = ('user__username',)
 
@@ -40,4 +41,6 @@ class CustomUserAdmin(UserAdmin):
     # )
 
 admin.site.register(CustomUser, CustomUserAdmin)   
+admin.site.register(SavingsItem)   
+
 

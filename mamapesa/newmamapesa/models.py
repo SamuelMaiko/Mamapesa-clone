@@ -2,6 +2,8 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.contrib.auth.models import AbstractUser, Group, Permission
+from datetime import timedelta, date
+from decimal import Decimal
 
 
 class CustomUser(AbstractUser):
@@ -26,18 +28,19 @@ class TrustScore(models.Model):
         return f"{self.user.username} - Score: {self.score}"
     
 class Savings(models.Model):
-    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='savings')
-    amount_saved = models.DecimalField(max_digits=10, decimal_places=2)
+    # user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='savings')
+    user=models.OneToOneField(CustomUser , on_delete=models.CASCADE, related_name="savings_account")
+    amount_saved = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     start_date = models.DateField(default=timezone.now)
-    end_date = models.DateField()
-    purpose = models.CharField(max_length=255, blank=True, null=True)
+    # end_date = models.DateField()
+    # purpose = models.CharField(max_length=255, blank=True, null=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    in_progress = models.BooleanField(default=True)
+    # in_progress = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"{self.user.username} - {self.amount_saved} (Start: {self.start_date}, End: {self.end_date})"
+        return f"{self.user.username} - {self.amount_saved} (Start: {self.start_date})"
 
     class Meta:
         ordering = ['-created_at']
@@ -69,12 +72,85 @@ class Loan(models.Model):
 class Item(models.Model):
     name = models.CharField(max_length=255)
     loan_count = models.IntegerField(default=0)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)   
     description = models.TextField(blank=True, null=True)
     in_stock = models.BooleanField(default=True)
     image = models.ImageField(upload_to='item_images/', blank=True, null=True)
+    savings=models.ManyToManyField(Savings, related_name="items")
 
     def __str__(self):
         return self.name
+class SavingsItem(models.Model):
+    savings = models.ForeignKey('Savings', on_delete=models.CASCADE, related_name='savings_items')
+    item = models.ForeignKey('Item', on_delete=models.CASCADE, related_name='savings_items')
+    target_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    amount_saved = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    start_date = models.DateField(default=timezone.now)
+    due_date = models.DateField(null=True, blank=True)
+    achieved = models.BooleanField(default=False)
+    in_progress = models.BooleanField(default=True)
+    saving_period=models.IntegerField(default=90)
+    
+    @property
+    def remaining_amount(self):
+        return self.target_amount-self.amount_saved
+    
+    @property
+    def installment(self):
+        return round(self.target_amount/self.saving_period, 2)
+        
+    def amount_skipped(self):
+        balance=self.target_amount-self.amount_saved
+        remaining_amount_to_target=self.remaining_days*self.installment
+        return balance-remaining_amount_to_target
+    
+    @property
+    def days_payment(self):
+        remaining_day=self.remaining_days-1
+        cash=remaining_day*self.installment
+        total=cash+self.amount_saved
+        return round(self.target_amount-total, 2)
+
+    @property
+    def is_achieved(self):
+        if self.amount_saved>=self.target_amount:
+            self.achieved=True
+            self.in_progress=False
+            self.save()
+            return True
+        else:
+            self.achieved=False
+            self.in_progress=True
+            self.save()
+            return False
+    
+    @property
+    def remaining_days(self):
+        """Calculate the number of days remaining until the savings goal is reached."""
+        if self.due_date:
+            today = date.today()
+            # today = today + timedelta(days=1)
+            remaining_days = (self.due_date - today).days
+            return max(0, remaining_days)
+        else:
+            return None
+
+    def __str__(self):
+        return f"{self.item.name} for {self.savings.user.username} - Target: {self.target_amount}"
+
+    class Meta:
+        unique_together = (('savings', 'item'),)
+        ordering = ['due_date']
+    
+    def save(self, *args, **kwargs):
+        # Calculate due date by adding 90 days to start_date
+        # if self.start_date and not self.due_date:
+        # self.savings.amount_saved+=Decimal(round(self.amount_saved,2))
+        # self.savings.save()
+        
+        if self.start_date:
+            self.due_date = self.start_date + timedelta(days=self.saving_period)
+        super().save(*args, **kwargs)
     
 
 class LoanItem(models.Model):
@@ -136,18 +212,3 @@ class Transaction(models.Model):
         ordering = ['-timestamp']
         
         
-
-class SavingsItem(models.Model):
-    savings = models.ForeignKey('Savings', on_delete=models.CASCADE, related_name='savings_items')
-    item = models.ForeignKey('Item', on_delete=models.CASCADE, related_name='item_savings')
-    target_amount = models.DecimalField(max_digits=10, decimal_places=2)
-    start_date = models.DateField(default=timezone.now)
-    due_date = models.DateField()
-    achieved = models.BooleanField(default=False)
-
-    def __str__(self):
-        return f"{self.item.name} for {self.savings.user.username} - Target: {self.target_amount}"
-
-    class Meta:
-        unique_together = (('savings', 'item'),)
-        ordering = ['due_date']
