@@ -22,5 +22,10 @@ from django.urls import path, include
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('accounts.urls')),
+<<<<<<< HEAD
     path('cash/', include('savingsandloans.urls'))
+=======
+    path('credentials/', include('savingsandloans.urls'))
+    
+>>>>>>> 0c36e251c83e59b77eda538877d8700f0296849d
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
