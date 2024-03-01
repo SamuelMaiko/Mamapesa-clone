@@ -22,6 +22,7 @@ from rest_framework.decorators import api_view
 @method_decorator(csrf_exempt, name='dispatch')
 class LoginWithToken(APIView):
     permission_classes = [AllowAny]
+    
     def post(self, request):
         username=request.data.get('username')
         password=request.data.get('password')
@@ -54,11 +55,11 @@ class LoginWithToken(APIView):
             return JsonResponse(response_dict, status=status.HTTP_401_UNAUTHORIZED)
         
 class TestView(APIView):
-    authentication_classes = [SessionAuthentication, TokenAuthentication]
-    permission_classes = [IsAuthenticated]
+    # authentication_classes = [SessionAuthentication, TokenAuthentication]
+    # permission_classes = [IsAuthenticated]
     
     def get(self,request):
-        response_dict=dict(message="The tokens work")
+        response_dict=dict(message="The tokens work",message1="The tokens work",message2="The tokens work",message3="The tokens work")
         if request.user:
             response_dict["user"]=request.user.username
         return JsonResponse(response_dict, status=status.HTTP_200_OK)
