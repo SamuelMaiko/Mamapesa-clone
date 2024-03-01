@@ -1,18 +1,28 @@
 from django.shortcuts import render
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
-from newmamapesa.models import Savings, CustomUser, SavingsItem, Item
+from newmamapesa.models import Savings, CustomUser, SavingsItem, Item, Loan
 from .serializers import SavingsAccountSerializer, SavingsItemSerializer, LoanRequestSerializer, LoanRepaymentSerializer, LoanSerializer
 from rest_framework import status
 from django.http import JsonResponse
 # from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+
 # from rest_framework import status
 # from .serializers import LoanRequestSerializer, LoanRepaymentSerializer, LoanSerializer
 # from newmamapesa.models import Loan, LoanRepayment
 from rest_framework.permissions import IsAuthenticated
-# Create your views here.
+
+# from rest_framework.views import APIView
+# from rest_framework.response import Response
+# from rest_framework import status
+# from .serializers import LoanRequestSerializer, LoanRepaymentSerializer, LoanSerializer
+# from newmamapesa.models import Loan, LoanRepayment
+# from rest_framework.permissions import IsAuthenticated# Create your views here.
 class SavingsAccountView(APIView):
+    authentication_classes = [SessionAuthentication, TokenAuthentication]    
+    permission_classes = [IsAuthenticated]
     
     def get(self, request):
         user=CustomUser.objects.get(id=1)
@@ -23,6 +33,8 @@ class SavingsAccountView(APIView):
         return JsonResponse(serializer.data, status=status.HTTP_200_OK)
 
 class SavingsItemsView(APIView):
+    authentication_classes = [SessionAuthentication, TokenAuthentication]    
+    permission_classes = [IsAuthenticated]
     
     def get(self, request):
         user=CustomUser.objects.get(id=1)
@@ -33,6 +45,8 @@ class SavingsItemsView(APIView):
         return JsonResponse(serializer.data, safe=False, status=status.HTTP_200_OK)
 
 class SavingsItemView(APIView):
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
+    permission_classes = [IsAuthenticated]
     
     def get(self, request, id):
         user=CustomUser.objects.get(id=1)
@@ -44,6 +58,8 @@ class SavingsItemView(APIView):
         
         return JsonResponse(serializer.data, safe=False, status=status.HTTP_200_OK)
 class DepositSavingsView(APIView):
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
+    permission_classes = [IsAuthenticated]
     
     def post(self, request, saving_item_id):
         specific_save_item=get_object_or_404(SavingsItem, id=saving_item_id)
@@ -70,6 +86,8 @@ class DepositSavingsView(APIView):
             return JsonResponse(response_dict, status=status.HTTP_400_BAD_REQUEST)
         
 class CreateSavingsView(APIView):
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
+    permission_classes = [IsAuthenticated]
     def post(self, request):
         received_item_name=request.data.get("item_name")
         received_item_price=request.data.get("item_price")
@@ -107,6 +125,8 @@ class CreateSavingsView(APIView):
             
             
 class ChangeSavingsPeriodView(APIView):
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
+    permission_classes = [IsAuthenticated]
     
     def post(self, request, saving_item_id):
         new_savings_period=request.data.get("new_savings_period")
@@ -131,14 +151,10 @@ class ChangeSavingsPeriodView(APIView):
             return JsonResponse(response_dict, status=status.HTTP_400_BAD_REQUEST)
             
 # views.py
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .serializers import LoanRequestSerializer, LoanRepaymentSerializer, LoanSerializer
-from newmamapesa.models import Loan, LoanRepayment
-from rest_framework.permissions import IsAuthenticated
+
 
 class LoanRequestView(APIView):
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
@@ -151,6 +167,7 @@ class LoanRequestView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class LoanRepaymentView(APIView):
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
@@ -169,6 +186,7 @@ class LoanRepaymentView(APIView):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 class LoanDetailView(APIView):
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request, loan_id, *args, **kwargs):

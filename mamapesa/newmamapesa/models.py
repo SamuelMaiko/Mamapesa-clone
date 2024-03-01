@@ -2,13 +2,9 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.contrib.auth.models import AbstractUser, Group, Permission
-<<<<<<< HEAD
 from datetime import timedelta, date
 from decimal import Decimal
 
-=======
-from decimal import Decimal
->>>>>>> 0c36e251c83e59b77eda538877d8700f0296849d
 
 class CustomUser(AbstractUser):
     phonenumber = models.CharField(max_length=15, blank=True, null=True)
@@ -154,6 +150,11 @@ class SavingsItem(models.Model):
     @property
     def days_payment(self):
         remaining_day=self.remaining_days-1
+        # if self.remaining_days is not None:
+        #     remaining_day = self.remaining_days - 1
+        # else:
+        #     # Handle the case where self.remaining_days is None
+        #     remaining_day = None
         cash=remaining_day*self.installment
         total=cash+self.amount_saved
         return round(self.target_amount-total, 2)
@@ -176,7 +177,7 @@ class SavingsItem(models.Model):
         """Calculate the number of days remaining until the savings goal is reached."""
         if self.due_date:
             today = date.today()
-            # today = today + timedelta(days=1)
+            today = today + timedelta(days=1)
             remaining_days = (self.due_date - today).days
             return max(0, remaining_days)
         else:

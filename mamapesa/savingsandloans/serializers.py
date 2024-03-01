@@ -1,6 +1,9 @@
-<<<<<<< HEAD
 from rest_framework import serializers
-from newmamapesa.models import Savings, SavingsItem, Item
+from newmamapesa.models import Savings, SavingsItem, Item, Loan, LoanRepayment
+from django.utils import timezone
+from decimal import Decimal
+from datetime import timedelta
+
 
 class SavingsAccountSerializer(serializers.ModelSerializer):
     
@@ -22,12 +25,6 @@ class SavingsItemSerializer(serializers.ModelSerializer):
         model=SavingsItem
         # fields=["id","item","amount_saved","target_amount","start_date","remaining_amount","daily_payment","remaining_days", "due_date","achieved","in_progress"]
         fields=["id","item","amount_saved","target_amount","start_date","remaining_amount","installment","days_payment","remaining_days", "due_date","saving_period","is_achieved","in_progress"]
-=======
-# serializers.py
-from rest_framework import serializers
-from newmamapesa.models import Loan, LoanRepayment
-from django.utils import timezone
-from decimal import Decimal
 
 class LoanRequestSerializer(serializers.ModelSerializer):
     class Meta:
@@ -116,4 +113,3 @@ class LoanSerializer(serializers.ModelSerializer):
 
     def get_remaining_balance(self, obj):
         return obj.get_remaining_balance()
->>>>>>> 0c36e251c83e59b77eda538877d8700f0296849d
