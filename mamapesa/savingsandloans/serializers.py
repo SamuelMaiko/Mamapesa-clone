@@ -1,6 +1,8 @@
-<<<<<<< HEAD
 from rest_framework import serializers
-from newmamapesa.models import Savings, SavingsItem, Item
+from newmamapesa.models import Loan, LoanRepayment,Savings, SavingsItem, Item
+from django.utils import timezone
+from decimal import Decimal
+from datetime import timedelta
 
 class SavingsAccountSerializer(serializers.ModelSerializer):
     
@@ -22,12 +24,7 @@ class SavingsItemSerializer(serializers.ModelSerializer):
         model=SavingsItem
         # fields=["id","item","amount_saved","target_amount","start_date","remaining_amount","daily_payment","remaining_days", "due_date","achieved","in_progress"]
         fields=["id","item","amount_saved","target_amount","start_date","remaining_amount","installment","days_payment","remaining_days", "due_date","saving_period","is_achieved","in_progress"]
-=======
 # serializers.py
-from rest_framework import serializers
-from newmamapesa.models import Loan, LoanRepayment
-from django.utils import timezone
-from decimal import Decimal
 
 class LoanRequestSerializer(serializers.ModelSerializer):
     class Meta:
@@ -37,14 +34,16 @@ class LoanRequestSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = self.context['request'].user  
         amount_requested = Decimal(validated_data['amount'])      
-       
+        
         if user.loan_limit >= amount_requested:
             interest_rate = user.interest_rate
-            total_loan_amount = amount_requested * (1 + interest_rate / 100)
+            total_disbursed = amount_requested * (1 - interest_rate / 100)
+            
 
             loan = Loan(
                 user=user,
-                amount=total_loan_amount,
+                amount=amount_requested,
+                amount_disbursed = total_disbursed,
                 interest_rate=interest_rate,
                 duration_months=3, 
                 application_date=timezone.now().date(),
@@ -57,7 +56,7 @@ class LoanRequestSerializer(serializers.ModelSerializer):
 
             loan.save()
             
-            user.loan_limit -= total_loan_amount
+            #user.loan_limit -= total_loan_amount
             user.save()
 
             print(f"Loan limit after request: {user.loan_limit}")
@@ -116,4 +115,3 @@ class LoanSerializer(serializers.ModelSerializer):
 
     def get_remaining_balance(self, obj):
         return obj.get_remaining_balance()
->>>>>>> 0c36e251c83e59b77eda538877d8700f0296849d

@@ -2,13 +2,10 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.contrib.auth.models import AbstractUser, Group, Permission
-<<<<<<< HEAD
 from datetime import timedelta, date
 from decimal import Decimal
+from dateutil.relativedelta import relativedelta
 
-=======
-from decimal import Decimal
->>>>>>> 0c36e251c83e59b77eda538877d8700f0296849d
 
 class CustomUser(AbstractUser):
     phonenumber = models.CharField(max_length=15, blank=True, null=True)
@@ -82,6 +79,7 @@ class Loan(models.Model):
     overdue_rate = models.DecimalField(max_digits=5, decimal_places=2, default=5)
     due_date = models.DateField(null=True, blank=True)  # Add due_date field
     repayments = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    amount_disbursed = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
 
     def calculate_remaining_amount(self):
         return max(self.amount - self.repaid_amount, 0)
@@ -91,6 +89,10 @@ class Loan(models.Model):
         if amount_paid > remaining_amount:
             excess_amount = amount_paid - remaining_amount
             amount_paid = remaining_amount
+            
+            # user_savings = get_user_model().savings_account
+            # user_savings.amount_saved += amount_paid
+            # user_savings.save()
 
         self.repaid_amount += amount_paid
         self.total_paid += amount_paid
