@@ -42,7 +42,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'accounts',
     'savingsandloans',
-    'mpesa_api',
+    # 'mpesa_api',
     
 ]
 
@@ -140,9 +140,9 @@ REST_FRAMEWORK={
 }
 
 
-import sentry_sdk
-from sentry_sdk.integrations.django import DjangoIntegration
-sentry_sdk.init(
-    dsn='https://6c4aee19c2f24687885882e015c9de13@sentry.io/1777995',
-    integrations=[DjangoIntegration()]
-)
+# import sentry_sdk
+# from sentry_sdk.integrations.django import DjangoIntegration
+# sentry_sdk.init(
+#     dsn='https://6c4aee19c2f24687885882e015c9de13@sentry.io/1777995',
+#     integrations=[DjangoIntegration()]
+# )

@@ -18,13 +18,13 @@ from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path, include
-from mpesa_api import views
+# from mpesa_api import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('accounts.urls')),
     path('cash/', include('savingsandloans.urls')),
     path('credentials/', include('savingsandloans.urls')),
-    path('api/v1/access/token', views.getAccessToken, name='get_mpesa_access_token'),
-    path('api/v1/online/lipa', views.lipa_na_mpesa_online, name='lipa_na_mpesa'),
+    # path('api/v1/access/token', views.getAccessToken, name='get_mpesa_access_token'),
+    # path('api/v1/online/lipa', views.lipa_na_mpesa_online, name='lipa_na_mpesa'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

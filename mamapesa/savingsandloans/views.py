@@ -5,27 +5,16 @@ from newmamapesa.models import Savings, CustomUser, SavingsItem, Item, Loan
 from .serializers import SavingsAccountSerializer, SavingsItemSerializer, LoanRequestSerializer, LoanRepaymentSerializer, LoanSerializer
 from rest_framework import status
 from django.http import JsonResponse
-# from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
-
-# from rest_framework import status
-# from .serializers import LoanRequestSerializer, LoanRepaymentSerializer, LoanSerializer
-# from newmamapesa.models import Loan, LoanRepayment
 from rest_framework.permissions import IsAuthenticated
 
-# from rest_framework.views import APIView
-# from rest_framework.response import Response
-# from rest_framework import status
-# from .serializers import LoanRequestSerializer, LoanRepaymentSerializer, LoanSerializer
-# from newmamapesa.models import Loan, LoanRepayment
-# from rest_framework.permissions import IsAuthenticated# Create your views here.
 class SavingsAccountView(APIView):
     authentication_classes = [SessionAuthentication, TokenAuthentication]    
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
-        user=CustomUser.objects.get(id=1)
+        user=request.user
         savings_account=get_object_or_404(Savings, user=user)
         
         serializer=SavingsAccountSerializer(savings_account)
@@ -37,7 +26,7 @@ class SavingsItemsView(APIView):
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
-        user=CustomUser.objects.get(id=1)
+        user=request.user
         all_savings_items=SavingsItem.objects.filter(savings=user.savings_account)
         
         serializer=SavingsItemSerializer(all_savings_items, many=True)
@@ -49,7 +38,7 @@ class SavingsItemView(APIView):
     permission_classes = [IsAuthenticated]
     
     def get(self, request, id):
-        user=CustomUser.objects.get(id=1)
+        user=request.user
         condition1={'savings':user.savings_account}
         condition2={'id':id}
         all_savings_items=SavingsItem.objects.filter(**condition1, **condition2)
@@ -62,29 +51,33 @@ class DepositSavingsView(APIView):
     permission_classes = [IsAuthenticated]
     
     def post(self, request, saving_item_id):
+        user=request.user
         specific_save_item=get_object_or_404(SavingsItem, id=saving_item_id)
-        
-        # {
-        #     "deposit_amount":2000
-        # }
-        deposit_amount=request.data.get("deposit_amount")
-        phone_number=request.data.get("phone_number")
-        amount=request.data.get("amount")
-        
-        if phone_number and amount:
-            pass
-            # handle payment here
-        
-        if deposit_amount:
-            specific_save_item.amount_saved+=deposit_amount
-            specific_save_item.save()
-            response_dict=dict(message="Deposit successful")
-            return JsonResponse(response_dict, status=status.HTTP_202_ACCEPTED)
+        if specific_save_item.savings.user==user:
             
+            # {
+            #     "deposit_amount":2000
+            # }
+            deposit_amount=request.data.get("deposit_amount")
+            phone_number=request.data.get("phone_number")
+            amount=request.data.get("amount")
+            
+            if phone_number and amount:
+                pass
+                # handle payment here
+            
+            if deposit_amount:
+                specific_save_item.amount_saved+=deposit_amount
+                specific_save_item.save()
+                response_dict=dict(message="Deposit successful")
+                return JsonResponse(response_dict, status=status.HTTP_202_ACCEPTED)
+                
+            else:
+                response_dict=dict(error="Provide the deposit amount")
+                return JsonResponse(response_dict, status=status.HTTP_400_BAD_REQUEST)
         else:
-            response_dict=dict(error="Provide the deposit amount")
-            return JsonResponse(response_dict, status=status.HTTP_400_BAD_REQUEST)
-        
+            response_dict=dict(error="Sorry the requested resource could not be found")
+            return JsonResponse(response_dict, status=status.HTTP_404_NOT_FOUND)
 class CreateSavingsView(APIView):
     authentication_classes = [SessionAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
@@ -103,9 +96,9 @@ class CreateSavingsView(APIView):
             new_item.description=f"An item called {received_item_name}"
             new_item.save()
             
-            test_user=CustomUser.objects.get(id=1)
+            user=request.user
             
-            new_savings_item=SavingsItem(item=new_item, savings=test_user.savings_account)
+            new_savings_item=SavingsItem(item=new_item, savings=user.savings_account)
             new_savings_item.target_amount=received_item_price
             if saving_period:
                 new_savings_item.saving_period=saving_period
@@ -130,21 +123,30 @@ class ChangeSavingsPeriodView(APIView):
     
     def post(self, request, saving_item_id):
         new_savings_period=request.data.get("new_savings_period")
-        
+        # if savings period provided
         if new_savings_period:
-        
+            user=request.user
+            
             specific_savings_item=get_object_or_404(SavingsItem, id=saving_item_id)
             
-            previous_end_date=specific_savings_item.due_date
-            specific_savings_item.saving_period=new_savings_period
-            specific_savings_item.save()
-            
-            response_dict=dict(message="Successfully updated savings period")
-            response_dict["item"]=dict(name=specific_savings_item.item.name, price=specific_savings_item.item.price)
-            response_dict["previous_end_date"]=previous_end_date
-            response_dict["new_end_date"]=specific_savings_item.due_date
-            
-            return JsonResponse(response_dict, status=status.HTTP_200_OK)
+            # verify if savings item belongs to the current user
+            if specific_savings_item.savings.user==user:
+                previous_end_date=specific_savings_item.due_date
+                specific_savings_item.saving_period=new_savings_period
+                specific_savings_item.save()
+                
+                response_dict=dict(message="Successfully updated savings period")
+                response_dict["item"]=dict(name=specific_savings_item.item.name, price=specific_savings_item.item.price)
+                response_dict["previous_end_date"]=previous_end_date
+                response_dict["new_end_date"]=specific_savings_item.due_date
+                
+                return JsonResponse(response_dict, status=status.HTTP_200_OK)
+            # handle response if savings item does not belong to user
+            else:
+                response_dict=dict(message="The resource could not be found")
+                
+                return JsonResponse(response_dict, status=status.HTTP_404_NOT_FOUND)
+        #if savings period not provided   
         else:
             response_dict=dict(message="Please provide the necessary data i.e new_savings_period ")
             
