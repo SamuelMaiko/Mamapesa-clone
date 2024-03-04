@@ -40,15 +40,25 @@ class LoanRequestSerializer(serializers.ModelSerializer):
         condition_1 = user.loan_limit > 0
         condition_2 = user.loan_owed <= 8000
         condition_3 = amount_requested <= 8000 or (active_loan and user.loan_owed <= 8000)#Amount requested should not be greater than 8000 if applying for the first time
-
+        loan_total = 0
+        loan_limit = 8000
 
         if condition_1 and condition_2 and condition_3:
             interest_rate = user.interest_rate
             total_disbursed = amount_requested * (1 - interest_rate / 100)
+
+            # Retrieve existing values
+            loan_total = user.loan_owed
+            loan_limit = user.loan_limit
+
+            # Update values
+            loan_total += amount_requested
+            loan_limit -= amount_requested 
+
+            user.loan_owed = loan_total
+            user.loan_limit = loan_limit
+            user.save()       
             
-            user.loan_owed += amount_requested
-            user.loan_limit -= amount_requested
-            user.save()
             amount_to_install = amount_requested / 90
             loan = Loan(
                 user=user,
@@ -62,7 +72,10 @@ class LoanRequestSerializer(serializers.ModelSerializer):
                 disbursed=True,
                 purpose=validated_data['purpose'],
                 due_date=timezone.now().date() + timedelta(days=90),  # Set your desired due date
-                installment_amount=amount_to_install
+                installment_amount=amount_to_install,
+                loan_owed=loan_total,
+                loan_limit = loan_limit,
+
             )
 
             loan.save()
@@ -119,7 +132,7 @@ class LoanRepaymentSerializer(serializers.ModelSerializer):
             )
 
             amount_paid = remaining_loan_amount  # Set amount_paid to the remaining loan amount
-            user.loan_limit += amount_paid
+            #user.loan_limit += amount_paid
             print(f"Loan limit after repayment: {user.loan_limit}")
 
         loan_repayment = LoanRepayment.objects.create(
@@ -127,9 +140,16 @@ class LoanRepaymentSerializer(serializers.ModelSerializer):
             amount_paid=amount_paid
         )
 
-        user.loan_owed -= amount_paid
-        user.loan_limit += amount_paid
-        user.save()
+        # user.loan_owed -= amount_paid
+        # user.loan_limit += amount_paid
+        # user.save()
+         # Retrieve existing values
+        loan_total = user.loan_owed
+        loan_limit = user.loan_limit
+
+            # Update values
+        loan_total += amount_paid
+        loan_limit -= amount_paid 
 
         loan.make_repayment(amount_paid)
         

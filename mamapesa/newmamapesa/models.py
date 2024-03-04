@@ -79,6 +79,8 @@ class Loan(models.Model):
     is_active = models.BooleanField(default=True)
     disbursed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    remaining_days = models.IntegerField(default=0)
+    grace_period_remaining_days = models.IntegerField(default=0)
     updated_at = models.DateTimeField(auto_now=True) 
     purpose = models.TextField(blank=True, null=True)
     collateral = models.FileField(upload_to='collaterals/', blank=True, null=True)
@@ -91,6 +93,7 @@ class Loan(models.Model):
     repayments = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     amount_disbursed = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     loan_owed = models.DecimalField(max_digits = 10, decimal_places=2,default= 0)
+    loan_limit = models.DecimalField(max_digits=10, decimal_places=2, default=800)
     #is_collateralized = models.BooleanField(default=False)
 
     objects = LoanManager()
@@ -104,11 +107,9 @@ class Loan(models.Model):
         if amount_paid > remaining_amount:
             excess_amount = amount_paid - remaining_amount
 
-            # if self.is_collateralized:
-            #amount_paid = excess_amount
             if self.repaid_amount == self.amount:
-                self.installment_amount = 0
-            
+                self.amount_disbursed = 0
+
             user_savings = get_user_model().savings_account
             user_savings.amount_saved += excess_amount
             user_savings.save()
@@ -120,6 +121,7 @@ class Loan(models.Model):
 
         self.update_loan_status()
         return amount_paid
+
 
     def update_loan_status(self):
         if self.repaid_amount == self.amount:
@@ -140,17 +142,31 @@ class Loan(models.Model):
         installment_amount = self.amount/self.loan_duration
         return round(installment_amount, 2)
     
+    def calculate_remaining_days(self):
+        if self.due_date:
+            current_date = timezone.now().date()
+            days_remaining = (self.due_date - current_date).days
+            return max(days_remaining, 0)
+        return 0
+    
     def calculate_grace_period_remaining_days(self):
         if self.due_date:
             current_date = timezone.now().date()
             days_since_due = (current_date - self.due_date).days
-            remaining_days = max(self.grace_period_days() - days_since_due, 0)
+            remaining_days = max(self.grace_period_days - days_since_due, 0)
             return remaining_days
         return 0
+
     def is_within_grace_period(self):
         remaining_days = self.calculate_grace_period_remaining_days()
         return remaining_days > 0
-        
+
+    
+    def save(self, *args, **kwargs):
+        self.remaining_days = self.calculate_remaining_days()
+        self.grace_period_remaining_days = self.calculate_grace_period_remaining_days()
+        super().save(*args, **kwargs)
+
     @property
     def grace_period_days(self):
         return self.grace_period_months * 30
