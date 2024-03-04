@@ -106,6 +106,8 @@ class Loan(models.Model):
 
             # if self.is_collateralized:
             #amount_paid = excess_amount
+            if self.repaid_amount == self.amount:
+                self.installment_amount = 0
             
             user_savings = get_user_model().savings_account
             user_savings.amount_saved += excess_amount
@@ -191,6 +193,7 @@ class LoanRepayment(models.Model):
 @receiver(post_save, sender=LoanRepayment)
 def create_repayment_transaction(sender, instance, created, **kwargs):
     if created:
+        print(f"Creating transaction for loan repayment: {instance.amount_paid}")
         Transaction.objects.create(
             user=instance.loan.user,
             amount=instance.amount_paid,
@@ -199,6 +202,7 @@ def create_repayment_transaction(sender, instance, created, **kwargs):
             loan=instance.loan,
             is_successful=True
         )
+        print("Transaction created successfully.")
 
     
 class Item(models.Model):

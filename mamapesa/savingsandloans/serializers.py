@@ -49,7 +49,7 @@ class LoanRequestSerializer(serializers.ModelSerializer):
             user.loan_owed += amount_requested
             user.loan_limit -= amount_requested
             user.save()
-
+            amount_to_install = amount_requested / 90
             loan = Loan(
                 user=user,
                 amount=amount_requested,
@@ -61,7 +61,8 @@ class LoanRequestSerializer(serializers.ModelSerializer):
                 is_active=True,
                 disbursed=True,
                 purpose=validated_data['purpose'],
-                due_date=timezone.now().date() + timedelta(days=90)  # Set your desired due date
+                due_date=timezone.now().date() + timedelta(days=90),  # Set your desired due date
+                installment_amount=amount_to_install
             )
 
             loan.save()
