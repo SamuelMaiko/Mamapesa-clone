@@ -1,8 +1,8 @@
 from django.shortcuts import render
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
-from newmamapesa.models import Savings, CustomUser, SavingsItem, Item
-from .serializers import SavingsAccountSerializer, SavingsItemSerializer, LoanRequestSerializer, LoanRepaymentSerializer, LoanSerializer
+from newmamapesa.models import Savings, CustomUser, SavingsItem, Item, Transaction
+from .serializers import SavingsAccountSerializer, SavingsItemSerializer, LoanRequestSerializer, LoanRepaymentSerializer, LoanSerializer, TransactionSerializer
 from rest_framework import status
 from django.http import JsonResponse
 # from rest_framework.views import APIView
@@ -137,6 +137,7 @@ from rest_framework import status
 from .serializers import LoanRequestSerializer, LoanRepaymentSerializer, LoanSerializer
 from newmamapesa.models import Loan, LoanRepayment
 from rest_framework.permissions import IsAuthenticated
+from rest_framework import generics
 
 class LoanRequestView(APIView):
     permission_classes = [IsAuthenticated]
@@ -179,3 +180,20 @@ class LoanDetailView(APIView):
 
         serializer = LoanSerializer(loan)
         return Response(serializer.data)
+
+
+class TransactionListView(generics.ListAPIView):
+    serializer_class = TransactionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        loan_transactions = Transaction.objects.filter(user=user, loan__isnull=False)
+        savings_transactions = Transaction.objects.filter(user=user, savings__isnull=False)
+                
+        queryset = loan_transactions | savings_transactions
+
+        print(f"User: {user.username}")
+        print(f"Number of transactions: {queryset.count()}")
+
+        return queryset

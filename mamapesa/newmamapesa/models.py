@@ -5,6 +5,10 @@ from django.contrib.auth.models import AbstractUser, Group, Permission
 from datetime import timedelta, date
 from decimal import Decimal
 from dateutil.relativedelta import relativedelta
+from django.core.validators import MinValueValidator
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
 
 
 class CustomUser(AbstractUser):
@@ -17,6 +21,8 @@ class CustomUser(AbstractUser):
     loan_limit = models.DecimalField(max_digits=10, decimal_places=2, default=8000)  # Add loan_limit field
     interest_rate = models.DecimalField(max_digits=5, decimal_places=2, default=5)  # Add interest_rate field
     user_permissions = models.ManyToManyField(Permission, related_name='customuser_set')
+    loan_owed = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
 
     def save(self, *args, **kwargs):
        
@@ -55,68 +61,145 @@ class Savings(models.Model):
 
     class Meta:
         ordering = ['-created_at']
-        
+
+class LoanManager(models.Manager):
+    def get_active_loan(self, user):
+        return self.filter(user=user, is_active=True).first()      
 
 class Loan(models.Model):
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='loans')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    interest_rate = models.DecimalField(max_digits=5, decimal_places=2)
-    duration_months = models.IntegerField()
+    interest_rate = models.DecimalField(max_digits=5, decimal_places=2, default=5)
+    duration_months = models.IntegerField(default = 3)
+    loan_duration = models.IntegerField(default = 90)
     application_date = models.DateField(default=timezone.now)
     repaid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     is_approved = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
     disbursed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    updated_at = models.DateTimeField(auto_now=True) 
     purpose = models.TextField(blank=True, null=True)
-    collateral = models.CharField(max_length=255, blank=True, null=True)
+    collateral = models.FileField(upload_to='collaterals/', blank=True, null=True)
     installment_amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    grace_period_months = models.IntegerField(default=0)
+    grace_period_months = models.IntegerField(default=1)
     overdue_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     penalty_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     overdue_rate = models.DecimalField(max_digits=5, decimal_places=2, default=5)
     due_date = models.DateField(null=True, blank=True)  # Add due_date field
     repayments = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     amount_disbursed = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    loan_owed = models.DecimalField(max_digits = 10, decimal_places=2,default= 0)
+    #is_collateralized = models.BooleanField(default=False)
+
+    objects = LoanManager()
 
     def calculate_remaining_amount(self):
         return max(self.amount - self.repaid_amount, 0)
+
 
     def make_repayment(self, amount_paid):
         remaining_amount = self.calculate_remaining_amount()
         if amount_paid > remaining_amount:
             excess_amount = amount_paid - remaining_amount
-            amount_paid = remaining_amount
+
+            # if self.is_collateralized:
+            #amount_paid = excess_amount
             
-            # user_savings = get_user_model().savings_account
-            # user_savings.amount_saved += amount_paid
-            # user_savings.save()
+            user_savings = get_user_model().savings_account
+            user_savings.amount_saved += excess_amount
+            user_savings.save()
 
         self.repaid_amount += amount_paid
         self.total_paid += amount_paid
         self.repayments += amount_paid
         self.save()
 
+        self.update_loan_status()
+        return amount_paid
+
+    def update_loan_status(self):
         if self.repaid_amount == self.amount:
             self.is_active = False
-            self.save()
+        elif 0 < self.loan_owed <= 8000:
+            self.is_active = True
+        else:
+             self.is_active = False
 
-        return amount_paid
+        self.save()     
+
+        
     def get_remaining_balance(self):
-        return self.amount - self.repaid_amount
+        return max(self.amount - self.repaid_amount, 0)
+    
+    @property
+    def installment(self):
+        installment_amount = self.amount/self.loan_duration
+        return round(installment_amount, 2)
+    
+    def calculate_grace_period_remaining_days(self):
+        if self.due_date:
+            current_date = timezone.now().date()
+            days_since_due = (current_date - self.due_date).days
+            remaining_days = max(self.grace_period_days() - days_since_due, 0)
+            return remaining_days
+        return 0
+    def is_within_grace_period(self):
+        remaining_days = self.calculate_grace_period_remaining_days()
+        return remaining_days > 0
+        
+    @property
+    def grace_period_days(self):
+        return self.grace_period_months * 30
+    
+    def calculate_overdue_amount(self):
+        if self.is_overdue():
+            overdue_days = (timezone.now().date() - self.due_date).days
+            overdue_interest_rate = self.penalty_rate + self.overdue_rate
+            overdue_amount = (self.loan_owed * overdue_interest_rate / 100) * (overdue_days / 30)
+            return Decimal(overdue_amount).quantize(Decimal('0.01'))
+        return Decimal(0)
 
+    
+    def is_overdue(self):
+        return self.due_date and timezone.now().date() > self.due_date
+    
     def __str__(self):
         return f"Loan for {self.user.username} - Amount: {self.amount}"
 
+@receiver(post_save, sender=Loan)
+def create_loan_transaction(sender, instance, created, **kwargs):
+    if created:
+        Transaction.objects.create(
+            user=instance.user,
+            amount=instance.amount,
+            description=f"Loan request for {instance.amount}",
+            transaction_type='expense',
+            loan=instance,
+            is_successful=True
+        )
 
 class LoanRepayment(models.Model):
-    loan = models.ForeignKey(Loan, on_delete=models.CASCADE, related_name='loan_repayments')  # Corrected related_name
+    loan = models.ForeignKey(Loan, on_delete=models.CASCADE, related_name='loan_repayments')  
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
         return f"Repayment of {self.amount_paid} for Loan {self.loan.id}"
+       
+
+@receiver(post_save, sender=LoanRepayment)
+def create_repayment_transaction(sender, instance, created, **kwargs):
+    if created:
+        Transaction.objects.create(
+            user=instance.loan.user,
+            amount=instance.amount_paid,
+            description=f"Loan repayment of {instance.amount_paid}",
+            transaction_type='income',
+            loan=instance.loan,
+            is_successful=True
+        )
+
     
 class Item(models.Model):
     name = models.CharField(max_length=255)
@@ -250,7 +333,7 @@ class Transaction(models.Model):
     loan = models.ForeignKey('Loan', on_delete=models.SET_NULL, null=True, blank=True, related_name='loan_transactions')
     savings = models.ForeignKey('Savings', on_delete=models.SET_NULL, null=True, blank=True, related_name='savings_transactions')
     category = models.CharField(max_length=50, blank=True, null=True)
-    payment_method = models.CharField(max_length=50, blank=True, null=True)
+    #payment_method = models.CharField(max_length=50, blank=True, null=True)
     reference_number = models.CharField(max_length=50, blank=True, null=True)
     is_successful = models.BooleanField(default=True)
 

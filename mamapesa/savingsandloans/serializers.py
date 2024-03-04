@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from newmamapesa.models import Loan, LoanRepayment,Savings, SavingsItem, Item
+from newmamapesa.models import Loan, LoanRepayment,Savings, SavingsItem, Item, Transaction
 from django.utils import timezone
 from decimal import Decimal
 from datetime import timedelta
@@ -33,12 +33,22 @@ class LoanRequestSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = self.context['request'].user  
-        amount_requested = Decimal(validated_data['amount'])      
+        amount_requested = Decimal(validated_data['amount'])     
         
-        if user.loan_limit >= amount_requested:
+        active_loan = Loan.objects.filter(user=user, is_active=True).first()
+
+        condition_1 = user.loan_limit > 0
+        condition_2 = user.loan_owed <= 8000
+        condition_3 = amount_requested <= 8000 or (active_loan and user.loan_owed <= 8000)#Amount requested should not be greater than 8000 if applying for the first time
+
+
+        if condition_1 and condition_2 and condition_3:
             interest_rate = user.interest_rate
             total_disbursed = amount_requested * (1 - interest_rate / 100)
             
+            user.loan_owed += amount_requested
+            user.loan_limit -= amount_requested
+            user.save()
 
             loan = Loan(
                 user=user,
@@ -55,19 +65,29 @@ class LoanRequestSerializer(serializers.ModelSerializer):
             )
 
             loan.save()
-            
-            #user.loan_limit -= total_loan_amount
-            user.save()
+            Transaction.objects.create(                                         
+                user=user,
+                amount=amount_requested,
+                description=f"Loan request for {amount_requested}",
+                transaction_type='expense',
+                loan=loan,
+                is_successful=True
+            )           
 
             print(f"Loan limit after request: {user.loan_limit}")
 
             return loan
         else:
-            print(f"Insufficient loan limit. User's loan limit: {user.loan_limit}, Amount requested: {amount_requested}")
-            raise serializers.ValidationError({'error': 'Insufficient loan limit'})
+            error_message = "Cannot access a loan based on specified conditions."
+            # if user.loan_limit == 0 and active_loan:
+            #     error_message += " Repay your existing loan to access a new one."
 
+            print(f"Loan request conditions not met for user: {user.username}")
+            raise serializers.ValidationError({'error': error_message})
+            
 
 class LoanRepaymentSerializer(serializers.ModelSerializer):
+    #new_loan_limit = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     class Meta:
         model = LoanRepayment
         fields = ['amount_paid']
@@ -76,8 +96,9 @@ class LoanRepaymentSerializer(serializers.ModelSerializer):
         user = self.context['request'].user
         loan = user.loans.filter(is_active=True, disbursed=True).first()
 
+
         if not loan:
-            raise serializers.ValidationError({'error': 'No active loan found for the user'})
+            raise serializers.ValidationError({'error': 'No active loan found for the user. Kindly move to the savings page to and start saving'})
 
         amount_paid = validated_data['amount_paid']  # Correct field name
 
@@ -86,6 +107,7 @@ class LoanRepaymentSerializer(serializers.ModelSerializer):
         if amount_paid > remaining_loan_amount:
             # Save the excess amount to the user's savings
             excess_amount = amount_paid - remaining_loan_amount
+                       
 
             # Assuming you have a Savings model
             savings = user.savings.create(
@@ -96,14 +118,30 @@ class LoanRepaymentSerializer(serializers.ModelSerializer):
             )
 
             amount_paid = remaining_loan_amount  # Set amount_paid to the remaining loan amount
+            user.loan_limit += amount_paid
+            print(f"Loan limit after repayment: {user.loan_limit}")
 
         loan_repayment = LoanRepayment.objects.create(
             loan=loan,
             amount_paid=amount_paid
         )
 
-        # Make repayment and handle loan status
+        user.loan_owed -= amount_paid
+        user.loan_limit += amount_paid
+        user.save()
+
         loan.make_repayment(amount_paid)
+        
+        Transaction.objects.create(
+                user=user,
+                amount=excess_amount,
+                description=f"Excess payment to savings for loan {loan.id}",
+                transaction_type='income',
+                savings=savings,  
+                is_successful=True
+            )
+
+        # Make repayment and handle loan status
 
         return loan_repayment
 class LoanSerializer(serializers.ModelSerializer):
@@ -115,3 +153,16 @@ class LoanSerializer(serializers.ModelSerializer):
 
     def get_remaining_balance(self, obj):
         return obj.get_remaining_balance()
+    
+
+class TransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Transaction
+        fields = '__all__'
+
+
+    def list(self, request, *args, **kwargs):
+        response = super().list(request, *args, **kwargs)
+        print(f"User: {self.request.user.username}")
+        print(response.data)  # Print the response data in the Django console
+        return response
