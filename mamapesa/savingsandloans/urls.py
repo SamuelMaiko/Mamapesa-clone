@@ -12,4 +12,5 @@ urlpatterns=[
     path("change-saving-period/<int:saving_item_id>", views.ChangeSavingsPeriodView.as_view(), name="change-savings-period"),
     # path('loans/', views.LoanRequestView.as_view(), name='loans'),
     # path('repayments/', views.LoanRepaymentView.as_view(), name='repayments'),
+    # path('transactions/', views.TransactionListView.as_view(), name='transaction-list'),
 ]

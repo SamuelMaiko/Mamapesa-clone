@@ -1,6 +1,8 @@
 from django.contrib import admin
 from .models import TrustScore, Savings, Item, SavingsItem, SavingsTransaction, PaymentMethod
+# from .models import TrustScore, Savings, Loan, Item, Payment, SavingsItem
 from django.contrib.auth.admin import UserAdmin
+# from django.contrib.auth.admin import UserAdmin
 
 admin.site.register(TrustScore)
 # admin.site.register(Payment)
@@ -11,6 +13,11 @@ admin.site.register(PaymentMethod)
 admin.site.register(Item)
 admin.site.register(Savings)
 admin.site.register(SavingsItem)   
+
+# admin.site.register(TrustScore)
+# admin.site.register(Payment)
+# admin.site.register(LoanTransaction)
+# admin.site.register(LoanItem)
 # customized
 # class ItemAdmin(admin.ModelAdmin):
 #     list_display = ('name', 'loan_count', 'in_stock')
@@ -18,7 +25,7 @@ admin.site.register(SavingsItem)
 #     search_fields = ('name', 'description')
 
 
-#  LoanAdmin(admin.ModelAdmin):
+# class LoanAdmin(admin.ModelAdmin):
 #     list_display = ('user', 'amount', 'interest_rate', 'duration_months', 'is_approved', 'is_active', 'disbursed')
 #     list_filter = ('is_approved', 'is_active', 'disbursed')
 #     search_fields = ('user__username', 'idnumber')

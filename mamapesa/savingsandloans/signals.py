@@ -1,6 +1,7 @@
 from django.dispatch import receiver, Signal
 from newmamapesa.models import SavingsItem, SavingsTransaction
 from django.db.models.signals import post_save
+from newmamapesa.models import LoanTransaction, Loan, LoanRepayment
 from decimal import Decimal
 
 @receiver(post_save, sender=SavingsItem)
@@ -33,3 +34,28 @@ def create_a_transaction(sender, **kwargs):
     
     
         
+
+
+@receiver(post_save, sender=Loan)
+def create_loan_transaction(sender, instance, created, **kwargs):
+    if created:
+        LoanTransaction.objects.create(
+            user=instance.user,
+            amount=instance.amount,
+            description=f"Loan request for {instance.amount}",
+            type='expense',
+            loan=instance,
+            is_successful=True
+        )
+
+@receiver(post_save, sender=LoanRepayment)
+def create_repayment_transaction(sender, instance, created, **kwargs):
+    if created:
+        LoanTransaction.objects.create(
+            user=instance.loan.user,
+            amount=instance.amount_paid,
+            description=f"Loan repayment of {instance.amount_paid}",
+            type='income',
+            loan=instance.loan,
+            is_successful=True
+        )
