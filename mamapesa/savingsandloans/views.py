@@ -1,13 +1,14 @@
 from django.shortcuts import render
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
-from newmamapesa.models import Savings, CustomUser, SavingsItem, Item, Loan
-from .serializers import SavingsAccountSerializer, SavingsItemSerializer, LoanRequestSerializer, LoanRepaymentSerializer, LoanSerializer
+from newmamapesa.models import Savings, CustomUser, SavingsItem, Item
+from .serializers import SavingsAccountSerializer, SavingsItemSerializer
 from rest_framework import status
 from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
+from .signals import after_deposit
 
 class SavingsAccountView(APIView):
     authentication_classes = [SessionAuthentication, TokenAuthentication]    
@@ -59,6 +60,15 @@ class DepositSavingsView(APIView):
             #     "deposit_amount":2000
             # }
             deposit_amount=request.data.get("deposit_amount")
+            # payment method id
+            payment_method=request.data.get("payment_method")
+            if not payment_method:
+                payment_method=1
+            
+            # send signal to create transaction
+            after_deposit.send(sender=None, payment_method=payment_method, amount=deposit_amount, savings_item=saving_item_id, type="deposit")
+            
+            # other received data
             phone_number=request.data.get("phone_number")
             amount=request.data.get("amount")
             
@@ -78,6 +88,60 @@ class DepositSavingsView(APIView):
         else:
             response_dict=dict(error="Sorry the requested resource could not be found")
             return JsonResponse(response_dict, status=status.HTTP_404_NOT_FOUND)
+# class WithdrawSavingsView(APIView):
+#     authentication_classes = [SessionAuthentication, TokenAuthentication]
+#     permission_classes = [IsAuthenticated]
+    
+#     def post(self, request, saving_item_id):
+#         user=request.user
+#         specific_save_item=get_object_or_404(SavingsItem, id=saving_item_id)
+#         if specific_save_item.savings.user==user:
+            
+#             # payment method id
+#             payment_method=request.data.get("payment_method")
+#             if not payment_method:
+#                 payment_method=1
+            
+#             # option for phone_number
+#             # take specific savings item
+#             # 
+            
+            
+            
+            
+            
+            
+            
+#             # if deposit_amount:
+#             #     specific_save_item.amount_saved+=deposit_amount
+#             #     specific_save_item.save()
+#             #     response_dict=dict(message="Deposit successful")
+#             #     return JsonResponse(response_dict, status=status.HTTP_202_ACCEPTED)
+                
+#             # else:
+#             #     response_dict=dict(error="Provide the deposit amount")
+#             #     return JsonResponse(response_dict, status=status.HTTP_400_BAD_REQUEST)
+#         else:
+#             response_dict=dict(error="Sorry the requested resource could not be found")
+#             return JsonResponse(response_dict, status=status.HTTP_404_NOT_FOUND)
+
+# class SuspendSavingsItemView(APIView):
+#     authentication_classes = [SessionAuthentication, TokenAuthentication]
+#     permission_classes = [IsAuthenticated]
+    
+#     def post(self, request, saving_item_id):
+#         user=request.user
+#         specific_save_item=get_object_or_404(SavingsItem, id=saving_item_id)
+        
+#         if specific_save_item.savings.user==user:
+#             remaining_days=specific_save_item.remaining_days
+#             print(remaining_days)
+            
+#             response_dict=dict(message="Saving Item suspended successfully")
+#             return JsonResponse(response_dict, status=status.HTTP_404_NOT_FOUND)
+#         else:
+#             response_dict=dict(error="Sorry the requested resource could not be found")
+#             return JsonResponse(response_dict, status=status.HTTP_404_NOT_FOUND)
 class CreateSavingsView(APIView):
     authentication_classes = [SessionAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
@@ -155,47 +219,47 @@ class ChangeSavingsPeriodView(APIView):
 # views.py
 
 
-class LoanRequestView(APIView):
-    authentication_classes = [SessionAuthentication, TokenAuthentication]
-    permission_classes = [IsAuthenticated]
+# class LoanRequestView(APIView):
+#     authentication_classes = [SessionAuthentication, TokenAuthentication]
+#     permission_classes = [IsAuthenticated]
 
-    def post(self, request, *args, **kwargs):
-        serializer = LoanRequestSerializer(data=request.data, context={'request': request})
+#     def post(self, request, *args, **kwargs):
+#         serializer = LoanRequestSerializer(data=request.data, context={'request': request})
 
-        if serializer.is_valid():
-            loan = serializer.save()
-            return Response({'success': 'Loan request successful', 'loan_id': loan.id}, status=status.HTTP_201_CREATED)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#         if serializer.is_valid():
+#             loan = serializer.save()
+#             return Response({'success': 'Loan request successful', 'loan_id': loan.id}, status=status.HTTP_201_CREATED)
+#         else:
+#             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class LoanRepaymentView(APIView):
-    authentication_classes = [SessionAuthentication, TokenAuthentication]
-    permission_classes = [IsAuthenticated]
+# class LoanRepaymentView(APIView):
+#     authentication_classes = [SessionAuthentication, TokenAuthentication]
+#     permission_classes = [IsAuthenticated]
 
-    def post(self, request, *args, **kwargs):
-        serializer = LoanRepaymentSerializer(data=request.data, context={'request': request})
+#     def post(self, request, *args, **kwargs):
+#         serializer = LoanRepaymentSerializer(data=request.data, context={'request': request})
 
-        if serializer.is_valid():
-            loan = request.user.loans.filter(is_active=True, disbursed=True).first()
+#         if serializer.is_valid():
+#             loan = request.user.loans.filter(is_active=True, disbursed=True).first()
 
-            if not loan:
-                return Response({'error': 'No active loan found for the user'}, status=status.HTTP_400_BAD_REQUEST)
+#             if not loan:
+#                 return Response({'error': 'No active loan found for the user'}, status=status.HTTP_400_BAD_REQUEST)
 
-            amount_paid = serializer.validated_data['amount_paid']  # Correct field name
-            loan.make_repayment(amount_paid)
+#             amount_paid = serializer.validated_data['amount_paid']  # Correct field name
+#             loan.make_repayment(amount_paid)
 
-            return Response({'success': 'Loan repayment successful', 'repayment_amount': amount_paid}, status=status.HTTP_201_CREATED)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-class LoanDetailView(APIView):
-    authentication_classes = [SessionAuthentication, TokenAuthentication]
-    permission_classes = [IsAuthenticated]
+#             return Response({'success': 'Loan repayment successful', 'repayment_amount': amount_paid}, status=status.HTTP_201_CREATED)
+#         else:
+#             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+# class LoanDetailView(APIView):
+#     authentication_classes = [SessionAuthentication, TokenAuthentication]
+#     permission_classes = [IsAuthenticated]
 
-    def get(self, request, loan_id, *args, **kwargs):
-        loan = Loan.objects.filter(user=request.user, id=loan_id).first()
+#     def get(self, request, loan_id, *args, **kwargs):
+#         loan = Loan.objects.filter(user=request.user, id=loan_id).first()
 
-        if not loan:
-            return Response({'error': 'Loan not found'}, status=status.HTTP_404_NOT_FOUND)
+#         if not loan:
+#             return Response({'error': 'Loan not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = LoanSerializer(loan)
-        return Response(serializer.data)
+#         serializer = LoanSerializer(loan)
+#         return Response(serializer.data)

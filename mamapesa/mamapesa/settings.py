@@ -81,9 +81,18 @@ WSGI_APPLICATION = 'mamapesa.wsgi.application'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
 DATABASES = {
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.sqlite3',
+    #     'NAME': BASE_DIR / 'db.sqlite3',
+    # }
+        #'ENGINE': 'django.db.backends.sqlite3',
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'railway',
+        'USER': 'postgres',
+        'PASSWORD': '1cdA3E2A3bccbcDegEEbbgbe1b6dC552',
+        'HOST': 'viaduct.proxy.rlwy.net',
+        'PORT': '22761',
     }
 }
 
@@ -129,7 +138,7 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = BASE_DIR / 'Mamapesa__media'
 
 AUTH_USER_MODEL='newmamapesa.CustomUser'
 
