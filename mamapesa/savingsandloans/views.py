@@ -186,11 +186,15 @@ class ChangeSavingsPeriodView(APIView):
 
 #         return queryset
 
-from newmamapesa.models import Loan, LoanRepayment,Savings, SavingsItem, Item, LoanTransaction
+from newmamapesa.models import Loan, LoanRepayment, Savings, SavingsItem, Item, LoanTransaction
 from .serializers import LoanRequestSerializer, LoanRepaymentSerializer, LoanTransactionSerializer
 from decimal import Decimal
 from django.utils import timezone
 from datetime import timedelta
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
 
 class LoanRequestView(APIView):
     permission_classes = [IsAuthenticated]
@@ -209,7 +213,7 @@ class LoanRequestView(APIView):
             condition_3 = amount_requested <= 8000 or (active_loan and user.loan_owed <= 8000)
 
             if condition_1 and condition_2 and condition_3:
-                #Retrieve existing values
+                # Retrieve existing values
                 loan_total = user.loan_owed
                 loan_limit = user.loan_limit
 
@@ -221,28 +225,78 @@ class LoanRequestView(APIView):
                 user.loan_limit = loan_limit
                 user.save()   
 
+                # Create Loan instance with values from the serializer
                 loan = Loan(
                     user=user,
                     amount=amount_requested,
-                    #amount_disbursed=amount_disbursed,
-                    #interest_rate=interest_rate,
-                    duration_months=3, 
+                    purpose=serializer.validated_data['purpose'],
+                    loan_duration=90,  
                     application_date=timezone.now().date(),
                     is_approved=True,
                     is_active=True,
-                    disbursed=True,
-                    purpose=serializer.validated_data['purpose'],
-                    due_date=timezone.now().date() + timedelta(days=90),
-                    #installment_amount=amount_to_install,
-                    loan_owed=loan_total,
-                    loan_limit=loan_limit,
+                    disbursed=True,  
+                    grace_period=30,  
+                    late_payment_penalty_rate=5,  
                 )
 
                 loan.save()
 
-            return Response({"message": "Loan request successful."}, status=status.HTTP_201_CREATED)
+                return Response({"message": "Loan request successful."}, status=status.HTTP_201_CREATED)
+            else:
+                error_message = "Cannot access a loan based on specified conditions."
+                return Response({"error": error_message}, status=status.HTTP_400_BAD_REQUEST)
         else:
-            error_message = "Cannot access a loan based on specified conditions."
-            return Response({"error": error_message}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class LoanRepaymentView(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request, *args, **kwargs):
+        serializer = LoanRepaymentSerializer(data=request.data, context={'request': request})
+
+        if serializer.is_valid():
+            user = request.user
+            loan = user.loans.filter(is_active=True, disbursed=True).first()
+
+            if not loan:
+                return Response({'error': 'No active loan found for the user. Kindly move to the savings page to start saving'}, status=status.HTTP_400_BAD_REQUEST)
+        
+            amount_paid = serializer.validated_data['amount_paid']
+            remaining_loan_amount = loan.calculate_remaining_amount()
+
+            if amount_paid > remaining_loan_amount:
+                # Save the excess amount to the user's savings
+                excess_amount = amount_paid - remaining_loan_amount
+
+                # Assuming you have a Savings model
+                savings = user.savings.create(
+                    amount_saved=excess_amount,
+                    start_date=timezone.now().date(),
+                    end_date=timezone.now().date() + timezone.timedelta(days=90),
+                    purpose="Excess loan payment savings"
+                )
+                amount_paid = remaining_loan_amount
+
+                user.loan_owed -= amount_paid
+                user.loan_limit += amount_paid
+                user.save()
+
+            loan_repayment = LoanRepayment.objects.create(
+                loan=loan,
+                amount_paid=amount_paid
+            )
+
+            loan_repayment.save()
+            return Response({"message": "Loan repayment successful."}, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)        
+
+
+
+class LoanTransactionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        transactions = LoanTransaction.objects.filter(user=user)
+        serializer = LoanTransactionSerializer(transactions, many=True)
+        return Response(serializer.data)
