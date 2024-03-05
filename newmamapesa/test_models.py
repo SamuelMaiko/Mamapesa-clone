@@ -1,7 +1,9 @@
 from datetime import date
+from django.forms import ValidationError
 from django.utils import timezone
+from django.contrib.auth import get_user_model
 from django.test import TestCase
-from .models import CustomUser, TrustScore, Savings, Loan, Item, LoanItem, Payment, Transaction, SavingsItem
+from .models import CustomUser, TrustScore, Savings, Loan, Item, LoanItem, LoanRepayment, Transaction, SavingsItem, Withdrawal
 
 
 class TestCustomUser(TestCase):
@@ -10,15 +12,9 @@ class TestCustomUser(TestCase):
         user = CustomUser.objects.create(
             username='test_user', 
             password='test_password', 
-            email='test@example.com',
-            phonenumber='123456789',
-            idnumber='ID123',
         )
         # Check if the user is created successfully
         assert user.username == 'test_user'
-        assert user.email == 'test@example.com'
-        assert user.phonenumber == '123456789'
-        assert user.idnumber == 'ID123'
         
         # Check if created_at and updated_at fields are set automatically
         assert user.created_at is not None
@@ -143,8 +139,8 @@ class LoanItemModelTestCase(TestCase):
             loan=loan,
             item=item,
             amount_paid=100.00,
-            date_loaned=date(2024, 3, 1),
-            return_date=date(2024, 3, 1),
+            date_loaned=date(2024, 3, 5),
+            return_date=date(2024, 3, 5),
             condition_on_return="Good condition"
         )
 
@@ -159,8 +155,8 @@ class LoanItemModelTestCase(TestCase):
         self.assertEqual(loan_item.amount_paid, 100.00)
 
         # Test DateField
-        self.assertEqual(loan_item.date_loaned, date(2024, 3, 1))
-        self.assertEqual(loan_item.return_date, date(2024, 3, 1))
+        self.assertEqual(loan_item.date_loaned, date(2024, 3, 5))
+        self.assertEqual(loan_item.return_date, date(2024, 3, 5))
 
         # Test TextField
         self.assertEqual(loan_item.condition_on_return, "Good condition")
@@ -174,38 +170,56 @@ class LoanItemModelTestCase(TestCase):
         self.assertIn(self.loan_item, item.loaned_items.all())
 
 
-class TestPayment(TestCase):
-    def test_create_payment(self):
-        # Create a CustomUser instance
-        user = CustomUser.objects.create(
-            username='test_user',
-            password='password',
-            email='test@example.com'
-        )
+# class TestPayment(TestCase):
+#     def test_create_payment(self):
+#         # Create a CustomUser instance
+#         user = CustomUser.objects.create(
+#             username='test_user',
+#             password='password',
+#             email='test@example.com'
+#         )
 
-        # Create a Payment
-        payment = Payment.objects.create(
-            user=user,
-            amount=100,
-            date=timezone.now(),
-            description='Test payment',
-            is_loan_payment=True,
-            payment_method='Credit card',
-            reference_number='123456'
-        )
+#         # Create a Payment
+#         payment = Payment.objects.create(
+#             user=user,
+#             amount=100,
+#             date=timezone.now(),
+#             description='Test payment',
+#             is_loan_payment=True,
+#             payment_method='Credit card',
+#             reference_number='123456'
+#         )
         
-        # Assert properties of the Payment
-        self.assertEqual(payment.user, user, "User should match the created CustomUser instance")
-        self.assertEqual(payment.amount, 100, "Amount should be 100")
-        self.assertEqual(payment.description, 'Test payment', "Description should be 'Test payment'")
-        self.assertTrue(payment.is_loan_payment, "is_loan_payment should be True")
-        self.assertFalse(payment.is_savings_payment, "is_savings_payment should be False")
-        self.assertEqual(payment.payment_method, 'Credit card', "Payment method should be 'Credit card'")
-        self.assertEqual(payment.reference_number, '123456', "Reference number should be '123456'")
-        self.assertTrue(payment.is_successful, "Payment should be successful")
+#         # Assert properties of the Payment
+#         self.assertEqual(payment.user, user, "User should match the created CustomUser instance")
+#         self.assertEqual(payment.amount, 100, "Amount should be 100")
+#         self.assertEqual(payment.description, 'Test payment', "Description should be 'Test payment'")
+#         self.assertTrue(payment.is_loan_payment, "is_loan_payment should be True")
+#         self.assertFalse(payment.is_savings_payment, "is_savings_payment should be False")
+#         self.assertEqual(payment.payment_method, 'Credit card', "Payment method should be 'Credit card'")
+#         self.assertEqual(payment.reference_number, '123456', "Reference number should be '123456'")
+#         self.assertTrue(payment.is_successful, "Payment should be successful")
 
-        # Test the __str__ method
-        self.assertEqual(str(payment), f"Payment by {payment.user.username} on {payment.date} - Amount: {payment.amount}", "__str__ should match expected format")
+#         # Test the __str__ method
+#         self.assertEqual(str(payment), f"Payment by {payment.user.username} on {payment.date} - Amount: {payment.amount}", "__str__ should match expected format")
+
+class LoanRepaymentModelTest(TestCase):
+    def setUp(self):
+        self.loan = Loan.objects.create()
+
+    def test_loan_repayment_creation(self):
+        repayment = LoanRepayment.objects.create(
+            loan=self.loan, amount_paid=500.00)
+        self.assertEqual(repayment.loan, self.loan)
+        self.assertEqual(repayment.amount_paid, 500.00)
+
+    def test_loan_repayment_str_method(self):
+        repayment = LoanRepayment.objects.create(
+            loan=self.loan, amount_paid=500.00)
+        self.assertEqual(
+            str(repayment),
+            f"Repayment of {repayment.amount_paid} for Loan {self.loan.id}"
+        )
 
 # Tests the creation of a Transaction instance
 class TestTransaction(TestCase):
@@ -284,3 +298,41 @@ class TestSavingsItem(TestCase):
 
         # Test the __str__ method
         self.assertEqual(str(savings_item), f"{savings_item.item.name} for {savings_item.savings.user.username} - Target: {savings_item.target_amount}", "__str__ should match expected format")
+
+
+class WithdrawalModelTest(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='testuser', password='password123')
+        self.savings = Savings.objects.create()
+        self.loan = Loan.objects.create()
+
+    def test_withdrawal_str_method(self):
+        withdrawal = Withdrawal.objects.create(
+            user=self.user, amount=100.00)
+        self.assertEqual(
+            str(withdrawal),
+            f"Withdrawal by {self.user.username} on {withdrawal.date} - Amount: {withdrawal.amount}"
+        )
+
+    def test_clean_method_with_both_savings_and_loan(self):
+        with self.assertRaises(ValidationError):
+            withdrawal = Withdrawal.objects.create(
+                user=self.user, amount=100.00, savings=self.savings, loan=self.loan)
+            withdrawal.clean()
+
+    def test_clean_method_with_neither_savings_nor_loan(self):
+        with self.assertRaises(ValidationError):
+            withdrawal = Withdrawal.objects.create(
+                user=self.user, amount=100.00)
+            withdrawal.clean()
+
+    def test_clean_method_with_savings_only(self):
+        withdrawal = Withdrawal.objects.create(
+            user=self.user, amount=100.00, savings=self.savings)
+        self.assertIsNone(withdrawal.clean())
+
+    def test_clean_method_with_loan_only(self):
+        withdrawal = Withdrawal.objects.create(
+            user=self.user, amount=100.00, loan=self.loan)
+        self.assertIsNone(withdrawal.clean())

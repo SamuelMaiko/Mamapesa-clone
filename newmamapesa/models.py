@@ -1,32 +1,33 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+from django.forms import ValidationError
 from django.utils import timezone
 from django.contrib.auth.models import AbstractUser, Group, Permission
-from decimal import Decimal
+from django.conf import settings
+from django.utils.translation import gettext_lazy as _
+
 
 class CustomUser(AbstractUser):
-    phonenumber = models.CharField(max_length=15, blank=True, null=True)
-    idnumber = models.CharField(max_length=20, unique=True, blank=True, null=True)
-    email=models.EmailField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    email = models.EmailField(_('email address'), unique=True, null=False, blank=False, default='example@example.com')
     groups = models.ManyToManyField(Group, related_name='customuser_set')
-    loan_limit = models.DecimalField(max_digits=10, decimal_places=2, default=8000)  # Add loan_limit field
-    interest_rate = models.DecimalField(max_digits=5, decimal_places=2, default=5)  # Add interest_rate field
     user_permissions = models.ManyToManyField(Permission, related_name='customuser_set')
-
-    def save(self, *args, **kwargs):
-       
-        if self.loan_limit is None or self.loan_limit == 0:
-            self.loan_limit = 8000
-        super().save(*args, **kwargs)
-
     def __str__(self):
-
         return self.username
     
+class UserDetails(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='details')
+    identification_number = models.CharField(max_length=20, unique=True, null=False, blank=False)
+    phone_number = models.CharField(max_length=15)
+    nationality = models.CharField(max_length=50)
+    physical_address = models.TextField()
+    
+    def __str__(self):
+        return f"Details for {self.user.username}"
+    
 class TrustScore(models.Model):
-    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='their_trust_score')
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     score = models.IntegerField()
     is_blacklisted = models.BooleanField(default=False)
     comment = models.TextField(blank=True, null=True)
@@ -36,10 +37,10 @@ class TrustScore(models.Model):
         return f"{self.user.username} - Score: {self.score}"
     
 class Savings(models.Model):
-    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='savings')
-    amount_saved = models.DecimalField(max_digits=10, decimal_places=2)
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='savings',null=True)
+    amount_saved = models.DecimalField(max_digits=10, decimal_places=2,null=True)
     start_date = models.DateField(default=timezone.now)
-    end_date = models.DateField()
+    end_date = models.DateField(null=True)
     purpose = models.CharField(max_length=255, blank=True, null=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -55,9 +56,9 @@ class Savings(models.Model):
 
 class Loan(models.Model):
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='loans',null=True)
-    amount = models.DecimalField(max_digits=1000, decimal_places=2, null=True)
-    interest_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True)
-    duration_months = models.IntegerField(null=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    interest_rate = models.DecimalField(max_digits=5, decimal_places=2,null=True)
+    duration_months = models.IntegerField(default=12)  # Define default value here
     application_date = models.DateField(default=timezone.now)
     repaid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -72,43 +73,10 @@ class Loan(models.Model):
     grace_period_months = models.IntegerField(default=0)
     overdue_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     penalty_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
-    overdue_rate = models.DecimalField(max_digits=5, decimal_places=2, default=5)
-    due_date = models.DateField(null=True, blank=True)  # Add due_date field
-    repayments = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-
-    def calculate_remaining_amount(self):
-        return max(self.amount - self.repaid_amount, 0)
-
-    def make_repayment(self, amount_paid):
-        remaining_amount = self.calculate_remaining_amount()
-        if amount_paid > remaining_amount:
-            excess_amount = amount_paid - remaining_amount
-            amount_paid = remaining_amount
-
-        self.repaid_amount += amount_paid
-        self.total_paid += amount_paid
-        self.repayments += amount_paid
-        self.save()
-
-        if self.repaid_amount == self.amount:
-            self.is_active = False
-            self.save()
-
-        return amount_paid
-    def get_remaining_balance(self):
-        return self.amount - self.repaid_amount
 
     def __str__(self):
         return f"Loan for {self.user.username} - Amount: {self.amount}"
-
-
-class LoanRepayment(models.Model):
-    loan = models.ForeignKey(Loan, on_delete=models.CASCADE, related_name='loan_repayments')  # Corrected related_name
-    amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
-
-    def __str__(self):
-        return f"Repayment of {self.amount_paid} for Loan {self.loan.id}"
-    
+ 
 class Item(models.Model):
     name = models.CharField(max_length=255)
     loan_count = models.IntegerField(default=0)
@@ -134,31 +102,76 @@ class LoanItem(models.Model):
     class Meta:
         unique_together = ('loan', 'item')
         
-class Payment(models.Model):
-    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='payments')
+# class Payment(models.Model):
+#     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='payments')
+#     amount = models.DecimalField(max_digits=10, decimal_places=2)
+#     date = models.DateField(default=timezone.now)
+#     description = models.TextField(blank=True, null=True)
+#     is_loan_payment = models.BooleanField(default=False)
+#     is_savings_payment = models.BooleanField(default=False)
+#     loan = models.ForeignKey('Loan', on_delete=models.SET_NULL, null=True, blank=True, related_name='loan_payments')
+#     savings = models.ForeignKey('Savings', on_delete=models.SET_NULL, null=True, blank=True, related_name='savings_payments')
+#     payment_method = models.CharField(max_length=50, blank=True, null=True)
+#     reference_number = models.CharField(max_length=50, blank=True, null=True)
+#     is_successful = models.BooleanField(default=True)
+
+#     def __str__(self):
+#         return f"Payment by {self.user.username} on {self.date} - Amount: {self.amount}"
+
+#     class Meta:
+#         constraints = [
+#             models.CheckConstraint(
+#                 check=models.Q(is_loan_payment=True, is_savings_payment=False) |
+#                        models.Q(is_loan_payment=False, is_savings_payment=True),
+#                 name='payment_for_loan_or_savings_only'
+#             ),
+#         ]
+        
+class SavingsPayment(models.Model):
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='savings_payments')
+    savings = models.ForeignKey('Savings', on_delete=models.CASCADE, related_name='all_payments', null=True, blank=True)
+    savings_item = models.ForeignKey('SavingsItem', on_delete=models.CASCADE, related_name='item_payments', null=True, blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateField(default=timezone.now)
     description = models.TextField(blank=True, null=True)
-    is_loan_payment = models.BooleanField(default=False)
-    is_savings_payment = models.BooleanField(default=False)
-    loan = models.ForeignKey('Loan', on_delete=models.SET_NULL, null=True, blank=True, related_name='loan_payments')
-    savings = models.ForeignKey('Savings', on_delete=models.SET_NULL, null=True, blank=True, related_name='savings_payments')
     payment_method = models.CharField(max_length=50, blank=True, null=True)
     reference_number = models.CharField(max_length=50, blank=True, null=True)
     is_successful = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"Payment by {self.user.username} on {self.date} - Amount: {self.amount}"
+        if self.savings_item:
+            return f"Savings Payment by {self.user.username} for {self.savings_item.item.name} on {self.date} - Amount: {self.amount}"
+        elif self.savings:
+            return f"Savings Payment by {self.user.username} on {self.date} - Amount: {self.amount}"
+        else:
+            return f"Savings Payment by {self.user.username} - Amount: {self.amount}"
 
     class Meta:
-        constraints = [
-            models.CheckConstraint(
-                check=models.Q(is_loan_payment=True, is_savings_payment=False) |
-                       models.Q(is_loan_payment=False, is_savings_payment=True),
-                name='payment_for_loan_or_savings_only'
-            ),
-        ]
+        ordering = ['-date']
         
+        
+class LoanPayment(models.Model):
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='loan_payments')
+    loan = models.ForeignKey('Loan', on_delete=models.CASCADE, related_name='payments')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    date = models.DateField(default=timezone.now)
+    description = models.TextField(blank=True, null=True)
+    payment_method = models.CharField(max_length=50, blank=True, null=True)
+    reference_number = models.CharField(max_length=50, blank=True, null=True)
+    is_successful = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"Loan Payment by {self.user.username} on {self.date} - Amount: {self.amount}"
+    
+
+class LoanRepayment(models.Model):
+    loan = models.ForeignKey(Loan, on_delete=models.CASCADE, related_name='loan_repayments')  # Corrected related_name
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return f"Repayment of {self.amount_paid} for Loan {self.loan.id}"
+    
+    
 class Transaction(models.Model):
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='transactions')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
@@ -194,3 +207,27 @@ class SavingsItem(models.Model):
     class Meta:
         unique_together = (('savings', 'item'),)
         ordering = ['due_date']
+        
+class Withdrawal(models.Model):
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='withdrawals')
+    savings = models.ForeignKey('Savings', on_delete=models.CASCADE, related_name='withdrawals', null=True, blank=True)
+    loan = models.ForeignKey('Loan', on_delete=models.CASCADE, related_name='withdrawals', null=True, blank=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    date = models.DateField(default=timezone.now)
+    description = models.TextField(blank=True, null=True)
+    withdrawal_method = models.CharField(max_length=50, default='M-Pesa', editable=False)  # Method is always M-Pesa
+    reference_number = models.CharField(max_length=50, blank=True, null=True)
+    is_successful = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"Withdrawal by {self.user.username} on {self.date} - Amount: {self.amount}"
+
+    class Meta:
+        ordering = ['-date']
+
+    def clean(self):
+        # Ensure that a withdrawal is linked to either a savings account or a loan, not both
+        if self.savings and self.loan:
+            raise ValidationError('A withdrawal cannot be linked to both a savings account and a loan.')
+        if not self.savings and not self.loan:
+            raise ValidationError('A withdrawal must be linked to either a savings account or a loan.')

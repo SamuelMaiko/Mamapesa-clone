@@ -1,9 +1,9 @@
 from django.contrib import admin
-from .models import TrustScore, Savings, Loan, Item, LoanItem, Payment, Transaction, SavingsItem
+from .models import TrustScore, Savings, Loan, Item, LoanItem, LoanRepayment, Transaction, SavingsItem
 from django.contrib.auth.admin import UserAdmin
 
 admin.site.register(TrustScore)
-admin.site.register(Payment)
+#admin.site.register(Payment)
 admin.site.register(Transaction)
 admin.site.register(LoanItem)
 # customized

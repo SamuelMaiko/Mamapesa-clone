@@ -1,4 +1,5 @@
 # serializers.py
+from datetime import timedelta
 from rest_framework import serializers
 from newmamapesa.models import Loan, LoanRepayment
 from django.utils import timezone
