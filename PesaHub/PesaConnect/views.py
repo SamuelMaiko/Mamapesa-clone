@@ -1,4 +1,42 @@
 
+
+"""
+API Views for Mamapesa-backend
+
+These views define the endpoints and logic for handling API requests.
+
+Usage:
+    These views are used within Django REST Framework to define API endpoints and handle requests.
+
+Overview:
+    - custom_user_list_create: API endpoint for listing or creating CustomUser instances.
+    - custom_user_detail: API endpoint for retrieving, updating, or deleting a specific CustomUser instance.
+    - trust_score_list_create: API endpoint for listing or creating TrustScore instances.
+    - trust_score_detail: API endpoint for retrieving, updating, or deleting a specific TrustScore instance.
+    - savings_list_create: API endpoint for listing or creating Savings instances.
+    - savings_detail: API endpoint for retrieving, updating, or deleting a specific Savings instance.
+    - transaction_list_create: API endpoint for listing or creating Transaction instances.
+    - transaction_detail: API endpoint for retrieving, updating, or deleting a specific Transaction instance.
+    - item_list_create: API endpoint for listing or creating Item instances.
+    - item_detail: API endpoint for retrieving, updating, or deleting a specific Item instance.
+    - loan_list_create: API endpoint for listing or creating Loan instances.
+    - loan_detail: API endpoint for retrieving, updating, or deleting a specific Loan instance.
+    - loan_item_list_create: API endpoint for listing or creating LoanItem instances.
+    - loan_item_detail: API endpoint for retrieving, updating, or deleting a specific LoanItem instance.
+    - savings_item_list_create: API endpoint for listing or creating SavingsItem instances.
+    - savings_item_detail: API endpoint for retrieving, updating, or deleting a specific SavingsItem instance.
+    - withdrawal_list_create: API endpoint for listing or creating Withdrawal instances.
+    - withdrawal_detail: API endpoint for retrieving, updating, or deleting a specific Withdrawal instance.
+    - user_details_list_create: API endpoint for listing or creating UserDetails instances.
+    - user_details_detail: API endpoint for retrieving, updating, or deleting a specific UserDetails instance.
+    - savings_payment_list_create: API endpoint for listing or creating SavingsPayment instances.
+    - savings_payment_detail: API endpoint for retrieving, updating, or deleting a specific SavingsPayment instance.
+
+Each view function corresponds to a specific HTTP method (GET, POST, PUT, DELETE) and performs appropriate actions on the associated model instances.
+
+For more information on Django REST Framework views, refer to the official documentation: https://www.django-rest-framework.org/api-guide/views/
+
+"""
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
