@@ -20,10 +20,11 @@ class CustomUser(AbstractUser):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     groups = models.ManyToManyField(Group, related_name='customuser_set')
-    loan_limit = models.DecimalField(max_digits=10, decimal_places=2, default=8000)  # Add loan_limit field
     interest_rate = models.DecimalField(max_digits=5, decimal_places=2, default=5)  # Add interest_rate field
     user_permissions = models.ManyToManyField(Permission, related_name='customuser_set')
     loan_owed = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    loan_limit = models.DecimalField(max_digits=10, decimal_places=2, default=8000)  # Add loan_limit field
+   # savings_account = models.ForeignKey('Savings', on_delete=models.CASCADE, related_name='savings_accounts', null=True, blank=True)
 
     class Meta:
         db_table="Users"
@@ -76,6 +77,7 @@ class Item(models.Model):
 class Savings(models.Model):
     # user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='savings')
     user=models.OneToOneField(CustomUser , on_delete=models.CASCADE, related_name="savings_account")
+    #user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='user_savings')
     amount_saved = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     start_date = models.DateField(default=timezone.now)
     # end_date = models.DateField()
@@ -131,8 +133,8 @@ class Loan(models.Model):
 
     # helper function to calculte amount disbursed in save() method
     def generate_amount_disbursed(self):
-
-        self.amount_disbursed=self.amount*(1-(self.interest_rate/100))
+        interest_rate = Decimal(str(self.interest_rate))
+        self.amount_disbursed = self.amount * (1 - interest_rate / 100)
 
     # override save() method        ````
     def save(self, *args, **kwargs):
@@ -146,6 +148,12 @@ class Loan(models.Model):
            self.grace_period_end_date=today+timedelta(self.grace_period)
 
        return super().save(*args, **kwargs) 
+    
+    def is_fully_repaid(self):
+        return self.repaid_amount == self.amount
+    
+    def calculate_remaining_amount(self):
+        return self.amount - self.repaid_amount
     
     @property
     def remaining_days(self):

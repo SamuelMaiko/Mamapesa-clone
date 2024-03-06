@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from newmamapesa.models import Loan, LoanRepayment,Savings, SavingsItem,SavingsTransaction, Item, LoanTransaction
+from newmamapesa.models import Loan, LoanRepayment,Savings, SavingsItem,SavingsTransaction, Item, LoanTransaction, CustomUser
 from django.utils import timezone
 from decimal import Decimal
 from datetime import timedelta
@@ -47,7 +47,7 @@ class LoanRequestSerializer(serializers.ModelSerializer):
         fields = ['amount', 'purpose']
 
 class LoanRepaymentSerializer(serializers.ModelSerializer):
-
+    amount_paid = serializers.IntegerField()
     class Meta:
         model = LoanRepayment
         fields = ['amount_paid']
@@ -56,10 +56,18 @@ class LoanTransactionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = LoanTransaction
-        fields = ['amount']
+        fields = '__all__'
+    def list(self, request, *args, **kwargs):
+        response = super().list(request, *args, **kwargs)
+        print(f"User: {self.request.user.username}")
+        print(response.data) 
+        return response
 
         
+class CustomUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ['loan_owed', 'loan_limit']
 
-    
 
     
