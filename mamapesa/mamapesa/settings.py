@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'accounts',
     'savingsandloans',
+    # 'mpesa_api',
     
 ]
 
@@ -84,7 +85,34 @@ DATABASES = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
+    #     'ENGINE': 'django.db.backends.sqlite3',
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.postgresql',
+    #     'NAME': 'railway',
+    #     'USER': 'postgres',
+    #     'PASSWORD': '1cdA3E2A3bccbcDegEEbbgbe1b6dC552',
+    #     'HOST': 'viaduct.proxy.rlwy.net',
+    #     'PORT': '22761',
+    # }
 }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
+
+# DATABASES = {
+#     'default': {
+#         # 'ENGINE': 'django.db.backends.sqlite3',
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': 'mamapesa',
+#         'USER':'root',
+#         'PASSWORD':'Sleepylynn@1',
+#         'HOST': 'localhost',
+#         'PORT': '3306',
+#     }
+# }
 
 
 # Password validation
@@ -128,7 +156,7 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = BASE_DIR / 'Mamapesa__media'
 
 AUTH_USER_MODEL='newmamapesa.CustomUser'
 
@@ -137,3 +165,11 @@ REST_FRAMEWORK={
       'rest_framework.authentication.TokenAuthentication',
     ),
 }
+
+
+# import sentry_sdk
+# from sentry_sdk.integrations.django import DjangoIntegration
+# sentry_sdk.init(
+#     dsn='https://6c4aee19c2f24687885882e015c9de13@sentry.io/1777995',
+#     integrations=[DjangoIntegration()]
+# )
