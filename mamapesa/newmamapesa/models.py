@@ -81,9 +81,9 @@ class Savings(models.Model):
 
     class Meta:
         ordering = ['-created_at']
-        
-    class Meta:
         db_table="Savings_Accounts"
+        
+
 
 # class LoanManager(models.Manager):
 #     def get_active_loan(self, user):
@@ -247,6 +247,19 @@ class SavingsItem(models.Model):
         unique_together = (('savings', 'item'),)
         ordering = ['due_date']
         db_table="Savings_Items"
+        
+    def save(self, *args, **kwargs):
+        if self.amount_saved>=self.target_amount:
+            self.achieved=True
+            # self.in_progress
+        
+        if self.start_date:
+            self.due_date = self.start_date + timedelta(days=self.saving_period)
+        super().save(*args, **kwargs)
+        
+    @property
+    def is_target_amount_reached(self):
+        return self.amount_saved>=self.target_amount
     
     @property
     def remaining_amount(self):
@@ -298,15 +311,6 @@ class SavingsItem(models.Model):
             return None
 
     
-    def save(self, *args, **kwargs):
-        # Calculate due date by adding 90 days to start_date
-        # if self.start_date and not self.due_date:
-        # self.savings.amount_saved+=Decimal(round(self.amount_saved,2))
-        # self.savings.save()
-        
-        if self.start_date:
-            self.due_date = self.start_date + timedelta(days=self.saving_period)
-        super().save(*args, **kwargs)
 
 class PaymentMethod(models.Model):
     name=models.CharField(max_length=30)
@@ -329,7 +333,7 @@ class SavingsTransaction(models.Model):
         ("DEPOSIT", "deposit"),
     ]
     type=models.CharField(max_length=25, choices=TRANSACTION_TYPES)
-    amount=models.DecimalField(max_digits=15, decimal_places=2)
+    amount=models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
     savings_item=models.ForeignKey(SavingsItem, on_delete=models.CASCADE, related_name="transactions")
     payment_method=models.ForeignKey(PaymentMethod, on_delete=models.SET_NULL, null=True, blank=True)
     timestamp=models.DateTimeField(auto_now_add=True)
@@ -338,6 +342,7 @@ class SavingsTransaction(models.Model):
         return f"{self.savings_item.savings.user.username}'s transaction of {self.amount} on {self.timestamp}"
     class Meta:
         db_table="Savings_Transactions"
+        ordering=['-timestamp',]
     
     
 

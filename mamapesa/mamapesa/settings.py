@@ -81,19 +81,19 @@ WSGI_APPLICATION = 'mamapesa.wsgi.application'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
 DATABASES = {
-    # 'default': {
-    #     'ENGINE': 'django.db.backends.sqlite3',
-    #     'NAME': BASE_DIR / 'db.sqlite3',
-    # }
-    #     'ENGINE': 'django.db.backends.sqlite3',
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'railway',
-        'USER': 'postgres',
-        'PASSWORD': '1cdA3E2A3bccbcDegEEbbgbe1b6dC552',
-        'HOST': 'viaduct.proxy.rlwy.net',
-        'PORT': '22761',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
+    #     'ENGINE': 'django.db.backends.sqlite3',
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.postgresql',
+    #     'NAME': 'railway',
+    #     'USER': 'postgres',
+    #     'PASSWORD': '1cdA3E2A3bccbcDegEEbbgbe1b6dC552',
+    #     'HOST': 'viaduct.proxy.rlwy.net',
+    #     'PORT': '22761',
+    # }
 }
 
 

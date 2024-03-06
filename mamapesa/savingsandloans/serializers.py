@@ -25,14 +25,14 @@ class SavingsItemSerializer(serializers.ModelSerializer):
         # fields=["id","item","amount_saved","target_amount","start_date","remaining_amount","daily_payment","remaining_days", "due_date","achieved","in_progress"]
         fields=["id","item","amount_saved","target_amount","start_date","remaining_amount","installment","days_payment","remaining_days", "due_date","saving_period","is_achieved","in_progress"]
         
-class SavingsItemSerializer2(serializers.ModelSerializer):
-    item=ItemSerializer()
-    # start_date = serializers.DateField(format='%Y-%m-%d')
-    # due_date = serializers.DateField(format='%Y-%m-%d')
-    class Meta:
-        model=SavingsItem
-        # fields=["id","item","amount_saved","target_amount","start_date","remaining_amount","daily_payment","remaining_days", "due_date","achieved","in_progress"]
-        fields=["id","item","amount_saved","target_amount","start_date","end_date"]
+# class SavingsItemSerializer2(serializers.ModelSerializer):
+#     item=ItemSerializer()
+#     # start_date = serializers.DateField(format='%Y-%m-%d')
+#     # due_date = serializers.DateField(format='%Y-%m-%d')
+#     class Meta:
+#         model=SavingsItem
+#         # fields=["id","item","amount_saved","target_amount","start_date","remaining_amount","daily_payment","remaining_days", "due_date","achieved","in_progress"]
+#         fields=["id","item","amount_saved","target_amount","start_date","end_date"]
 
 class SavingsTransactionSerializer(serializers.ModelSerializer):
     # item=
