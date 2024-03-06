@@ -31,11 +31,6 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
-<<<<<<< HEAD
-=======
-    # 'CustomUser',
-    'newmamapesa',
->>>>>>> 20101674ad212596cfb596184ea746866b4fb765
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -161,7 +156,6 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 MEDIA_URL = '/media/'
-<<<<<<< HEAD
 MEDIA_ROOT = BASE_DIR / 'Mamapesa__media'
 
 AUTH_USER_MODEL='newmamapesa.CustomUser'
@@ -179,8 +173,3 @@ REST_FRAMEWORK={
 #     dsn='https://6c4aee19c2f24687885882e015c9de13@sentry.io/1777995',
 #     integrations=[DjangoIntegration()]
 # )
-=======
-MEDIA_ROOT = BASE_DIR / 'media'
-
-AUTH_USER_MODEL='newmamapesa.CustomUser'
->>>>>>> 20101674ad212596cfb596184ea746866b4fb765
