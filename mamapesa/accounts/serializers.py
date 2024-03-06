@@ -7,16 +7,16 @@ class UserSerializer(serializers.ModelSerializer):
     
     class Meta:
         model=CustomUser
-        fields=['username','email','phonenumber']
+        fields=['username','email']
 
 class UserRegisterSerializer(serializers.ModelSerializer):
     password2 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
     idnumber = serializers.CharField(max_length=10, write_only=True, required=True)
-    phonenumber = serializers.CharField(max_length=20, write_only=True, required=True)
+    # phonenumber = serializers.CharField(max_length=20, write_only=True, required=True)
 
     class Meta:
         model = CustomUser
-        fields = ['username', 'email', 'password', 'password2', 'idnumber', 'phonenumber']
+        fields = ['username', 'email', 'password', 'password2', 'idnumber']
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -39,15 +39,15 @@ class UserRegisterSerializer(serializers.ModelSerializer):
     def save(self):
         password = self.validated_data['password']
         idnumber = self.validated_data['idnumber']
-        phonenumber = self.validated_data['phonenumber']
+        # phonenumber = self.validated_data['phonenumber']
 
         # You may want to include additional validation for idnumber and phonenumber
 
         account = CustomUser(
             email=self.validated_data['email'],
             username=self.validated_data['username'],
-            idnumber=idnumber,
-            phonenumber=phonenumber
+            idnumber=idnumber
+            # phonenumber=phonenumber
         )
         account.set_password(password)
         account.save()
