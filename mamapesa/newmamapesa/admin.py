@@ -1,4 +1,5 @@
 from django.contrib import admin
+<<<<<<< HEAD
 from .models import TrustScore, Savings, Item, SavingsItem, SavingsTransaction, PaymentMethod
 # from .models import TrustScore, Savings, Loan, Item, Payment, SavingsItem
 from django.contrib.auth.admin import UserAdmin
@@ -18,6 +19,16 @@ admin.site.register(SavingsItem)
 # admin.site.register(Payment)
 # admin.site.register(LoanTransaction)
 # admin.site.register(LoanItem)
+=======
+from .models import TrustScore, Savings, Loan, Item, LoanItem, Transaction, SavingsItem
+from django.contrib.auth.admin import UserAdmin
+from .models import SavingsPayment, LoanPayment
+
+admin.site.register(TrustScore)
+# admin.site.register(Payment)
+admin.site.register(Transaction)
+admin.site.register(LoanItem)
+>>>>>>> 20101674ad212596cfb596184ea746866b4fb765
 # customized
 # class ItemAdmin(admin.ModelAdmin):
 #     list_display = ('name', 'loan_count', 'in_stock')
@@ -40,6 +51,7 @@ admin.site.register(SavingsItem)
 
 # from .models import CustomUser
 
+<<<<<<< HEAD
 # class CustomUserAdmin(UserAdmin): 
 #     model = CustomUser
 #     list_display = ['username',]
@@ -49,7 +61,32 @@ admin.site.register(SavingsItem)
     # add_fieldsets = UserAdmin.add_fieldsets + (
     #     (None, {'fields': ('custom_field',)}),  # Add your custom fields here for the create user page
     # )
+=======
+class CustomUserAdmin(UserAdmin): 
+    model = CustomUser
+    list_display = [ 'username',]
+  
+>>>>>>> 20101674ad212596cfb596184ea746866b4fb765
 
 # admin.site.register(CustomUser, CustomUserAdmin)   
 
 
+
+@admin.register(SavingsPayment)
+class SavingsPaymentAdmin(admin.ModelAdmin):
+    list_display = ('user', 'savings', 'amount', 'date', 'is_successful')
+    list_filter = ('is_successful',)
+    search_fields = ('user__username', 'savings__id', 'reference_number')
+
+@admin.register(LoanPayment)
+class LoanPaymentAdmin(admin.ModelAdmin):
+    list_display = ('user', 'loan', 'amount', 'date', 'is_successful')
+    list_filter = ('is_successful',)
+    search_fields = ('user__username', 'loan__id', 'reference_number')
+
+from .models import UserDetails
+
+@admin.register(UserDetails)
+class UserDetailsAdmin(admin.ModelAdmin):
+    list_display = ['user', 'identification_number', 'phone_number', 'nationality', 'physical_address']
+    search_fields = ['user__username', 'identification_number', 'phone_number']
