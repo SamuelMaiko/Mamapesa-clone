@@ -22,8 +22,6 @@ Overview:
 
 Each serializer defines a Meta class specifying the corresponding model and the fields to be included in the serialization process.
 
-For more information on Django REST Framework serializers, refer to the official documentation: https://www.django-rest-framework.org/api-guide/serializers/
-
 """
 from rest_framework import serializers
 from .models import CustomUser, TrustScore, Savings, Loan, Item, LoanItem, Transaction, SavingsItem, Withdrawal, UserDetails, SavingsPayment
