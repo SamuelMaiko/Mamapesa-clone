@@ -1,20 +1,16 @@
-from django.shortcuts import render
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
-from .serializers import SavingsAccountSerializer, SavingsItemSerializer, SavingsTransactionSerializer,LoanRequestSerializer, LoanRepaymentSerializer, LoanTransactionSerializer, CustomUserSerializer
+from .serializers import SavingsAccountSerializer, SavingsItemSerializer, SavingsTransactionSerializer,LoanRequestSerializer, LoanTransactionSerializer, CustomUserSerializer
 from rest_framework import status, generics
 from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
-from newmamapesa.models import Loan, LoanRepayment, Savings, SavingsItem, SavingsTransaction, Item, LoanTransaction
-from .serializers import LoanRequestSerializer, LoanRepaymentSerializer, LoanTransactionSerializer
+from newmamapesa.models import Loan, Savings, SavingsItem, Item, LoanTransaction
+from .serializers import LoanRequestSerializer, LoanTransactionSerializer
 from decimal import Decimal
-from django.utils import timezone
-from datetime import timedelta
-from .signals import after_deposit
+from .signals import after_deposit, after_repay_loan, loan_disbursed
 from .serializer_helpers import get_all_transactions
-
 
 class SavingsAccountView(APIView):
     """
@@ -278,111 +274,94 @@ class WithdrawSavingsToSupplier(APIView):
             
         
 class LoanRequestView(APIView):
-    authentication_classes = [SessionAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request):
         serializer = LoanRequestSerializer(data=request.data, context={'request': request})
 
         if serializer.is_valid():
             user = request.user
             amount_requested = Decimal(serializer.validated_data['amount'])
-            active_loan = Loan.objects.filter(user=user, is_active=True).first()
+            
+            if amount_requested>0:
+            
+                eligibility_check = self.check_loan_eligibility(user, amount_requested)
 
-            # Check loan eligibility conditions
-            eligibility_check = self.check_loan_eligibility(user, amount_requested, active_loan)
+                if eligibility_check['is_eligible']:
+                    
+                    loan = Loan(
+                        user=user,
+                        amount=amount_requested,                    
+                    )
 
-            if eligibility_check['is_eligible']:
-                # Update loan_owed and loan_limit
-                user.loan_owed += amount_requested
-                user.loan_limit -= amount_requested
-                user.save()
+                    loan.save()
+                    # AMOUNT TO GO TO PAYMENT GATEWAY
+                    amount_to_disburse=loan.amount_disbursed
+                    print(amount_to_disburse)
+                    # After successful payment
+                    loan_disbursed.send(sender=None, amount=amount_to_disburse, user=user, loan=loan)
 
-                # Create Loan instance
-                loan = Loan(
-                    user=user,
-                    amount=amount_requested,
-                    purpose=serializer.validated_data['purpose'],
-                    loan_duration=90,
-                    application_date=timezone.now().date(),
-                    is_approved=True,
-                    is_active=True,
-                    disbursed=True,
-                    grace_period=30,
-                    late_payment_penalty_rate=5,
-                )
-
-                loan.save()
-
-                return Response({"message": "Loan request successful.", 'amount': amount_requested}, status=status.HTTP_201_CREATED)
+                    return Response({"message": "Loan request successful.", 'amount': amount_requested}, status=status.HTTP_201_CREATED)
+                else:
+                    return Response({"error": eligibility_check['error']}, status=status.HTTP_400_BAD_REQUEST)
+                
             else:
-                return Response({"error": eligibility_check['error']}, status=status.HTTP_400_BAD_REQUEST)
+                response_dict=dict(message="Amount not provided")
+                return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def check_loan_eligibility(self, user, amount_requested, active_loan):
+    def check_loan_eligibility(self, user, amount_requested):
         # Business logic for checking loan eligibility
-        condition_1 = user.loan_limit > 0
-        condition_2 = user.loan_owed <= 8000
-        condition_3 = amount_requested <= 8000 or (active_loan and user.loan_owed <= 8000)        
+        condition_1 = user.is_eligible
+        # condition_2 = user.loan_owed <= 8000
+        condition_3 = amount_requested <= user.amount_borrowable      
         if not condition_1:
             return {'is_eligible': False, 'error': "Loan limit exhausted."}
-        elif not condition_2:
-            return {'is_eligible': False, 'error': "Loan owed exceeds limit."}
+        # elif not condition_2:
+        #     return {'is_eligible': False, 'error': "Loan owed exceeds limit."}
         elif not condition_3:
-            return {'is_eligible': False, 'error': "Additional loan exceeds limit."}        
+            return {'is_eligible': False, 'error': "requested loan exceeds loan limit."}        
         else:
             return {'is_eligible': True, 'error': None}
 
 class LoanRepaymentView(APIView):
     authentication_classes = [SessionAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
-
-    def post(self, request, *args, **kwargs):
-        serializer = LoanRepaymentSerializer(data=request.data, context={'request': request})
-
-        if serializer.is_valid():
-            user = request.user
-            loan = user.loans.filter(is_active=True, disbursed=True).first()
-
-            if not loan:
-                return Response({'error': 'No active loan found for the user. Kindly move to the savings page to start saving'}, status=status.HTTP_400_BAD_REQUEST)
-
-            amount_paid = serializer.validated_data['amount_paid']
-            remaining_loan_amount = loan.calculate_remaining_amount()
-
-            if amount_paid > remaining_loan_amount:
-                # Save the excess amount to the user's savings
-                excess_amount = amount_paid - remaining_loan_amount
-
-                # # Assuming you have a Savings model
-                # savings = user.user_savings  # Access the related name
-                # savings.amount_saved += excess_amount
-                # savings.save()
-
-                amount_paid = remaining_loan_amount
-
-            # Update loan_owed and loan_limit
-            user.loan_owed -= amount_paid
-            user.loan_limit += amount_paid
-            user.save()
-
-
-
-            # Create LoanRepayment instance
-            loan_repayment = LoanRepayment.objects.create(
-                loan=loan,
-                amount_paid=amount_paid
-            )
-
-            loan_repayment.save()
-
-            return Response({"message": "Loan repayment successful.", 'repayment_amount': amount_paid}, status=status.HTTP_201_CREATED)
+        
+    def post(self, request):
+        user=request.user
+        amount_paid =request.data.get("amount_paid")
+        
+        if amount_paid>0:
+            all_loans=user.loans.filter(is_active=True)
+            if all_loans.exists():
+                user.loan_owed-=amount_paid
+                user.save()
+                
+                amount_to_redistribute=amount_paid
+                for loan in all_loans:
+                    if amount_to_redistribute<=0:
+                        break
+                    
+                    repayment_amount=min(amount_to_redistribute, loan.remaining_amount)
+                    
+                    loan.repaid_amount+=repayment_amount
+                    loan.save()
+                    if repayment_amount !=0:
+                        after_repay_loan.send(sender=None, user=user, loan=loan, amount=repayment_amount)
+                    
+                    amount_to_redistribute-=repayment_amount
+                
+                response_dict=dict(message="repayment of loan successful")
+                return Response(response_dict, status=status.HTTP_200_OK)
+            else:
+                response_dict=dict(message="No active loans found")
+                return Response(response_dict, status=status.HTTP_200_OK)
         else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)  
-
-
-
+            response_dict=dict(message="amount not provided")
+            return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)  
+        
 class LoanTransactionView(APIView):
     authentication_classes = [SessionAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
