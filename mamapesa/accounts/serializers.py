@@ -36,7 +36,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         account = CustomUser(
             email=self.validated_data['email'],
             username=self.validated_data['username'],
-            idnumber=idnumber
+            idnumber=idnumber,
             phonenumber=phonenumber
         )
         account.set_password(password)
