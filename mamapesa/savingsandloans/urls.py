@@ -13,7 +13,7 @@ urlpatterns=[
     path("withdraw-to-supplier/<int:saving_item_id>", views.WithdrawSavingsToSupplier.as_view(), name="withdraw-to-supplier"),
     path("savings-transactions/", views.SavingsTransactionsView.as_view(), name='savings-transaction-list'),
     path('loans/', views.LoanRequestView.as_view(), name='loans'),
-    # path('repayments/', views.LoanRepaymentView.as_view(), name='repayments'),
+    path('repayments/', views.LoanRepaymentView.as_view(), name='repayments'),
     path('transactions/', views.LoanTransactionView.as_view(), name='transaction-list'),
     path('user-loan-info/', views.UserLoanInfoView.as_view(), name='user-loan-info'),
 ]

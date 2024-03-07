@@ -12,7 +12,7 @@ from .serializers import LoanRequestSerializer, LoanRepaymentSerializer, LoanTra
 from decimal import Decimal
 from django.utils import timezone
 from datetime import timedelta
-from .signals import after_deposit
+from .signals import after_deposit, after_repay_loan, loan_disbursed
 from .serializer_helpers import get_all_transactions
 
 
@@ -313,6 +313,14 @@ class LoanRequestView(APIView):
                 )
 
                 loan.save()
+                
+                # handle payment to gateway to gateway
+                
+                
+                loan_disbursed.send(sender=None, user=user, amount=amount_requested, loan=loan)
+                
+                
+                
 
                 return Response({"message": "Loan request successful.", 'amount': amount_requested}, status=status.HTTP_201_CREATED)
             else:
@@ -338,49 +346,45 @@ class LoanRepaymentView(APIView):
     authentication_classes = [SessionAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, *args, **kwargs):
-        serializer = LoanRepaymentSerializer(data=request.data, context={'request': request})
-
-        if serializer.is_valid():
-            user = request.user
-            loan = user.loans.filter(is_active=True, disbursed=True).first()
-
-            if not loan:
-                return Response({'error': 'No active loan found for the user. Kindly move to the savings page to start saving'}, status=status.HTTP_400_BAD_REQUEST)
-
-            amount_paid = serializer.validated_data['amount_paid']
-            remaining_loan_amount = loan.calculate_remaining_amount()
-
-            if amount_paid > remaining_loan_amount:
-                # Save the excess amount to the user's savings
-                excess_amount = amount_paid - remaining_loan_amount
-
-                # # Assuming you have a Savings model
-                # savings = user.user_savings  # Access the related name
-                # savings.amount_saved += excess_amount
-                # savings.save()
-
-                amount_paid = remaining_loan_amount
-
-            # Update loan_owed and loan_limit
-            user.loan_owed -= amount_paid
-            user.loan_limit += amount_paid
-            user.save()
-
-
-
-            # Create LoanRepayment instance
-            loan_repayment = LoanRepayment.objects.create(
-                loan=loan,
-                amount_paid=amount_paid
-            )
-
-            loan_repayment.save()
-
-            return Response({"message": "Loan repayment successful.", 'repayment_amount': amount_paid}, status=status.HTTP_201_CREATED)
+    # def repay_loans(self, loans):
+        
+    #     for each_loan in loans
+        
+    def post(self, request):
+        user=request.user
+        amount_paid =request.data.get("amount_paid")
+        
+        if amount_paid>0:
+            all_loans=user.loans.filter(is_active=True)
+            
+            if all_loans.exists():
+                    
+                user.loan_owed-=amount_paid
+                user.save()
+                
+                amount_to_redistribute=amount_paid
+                for loan in all_loans:
+                    if amount_to_redistribute<=0:
+                        break
+                    
+                    repayment_amount=min(amount_to_redistribute, loan.remaining_amount)
+                    
+                    loan.repaid_amount+=repayment_amount
+                    loan.save()
+                    if repayment_amount !=0:
+                        after_repay_loan.send(sender=None, user=user, loan=loan, amount=repayment_amount)
+                    
+                    amount_to_redistribute-=repayment_amount
+                
+                response_dict=dict(message="repayment of loan successful")
+                return Response(response_dict, status=status.HTTP_200_OK)
+            else:
+                response_dict=dict(message="No active loans found")
+                return Response(response_dict, status=status.HTTP_200_OK)
         else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)  
-
+            response_dict=dict(message="amount not provided")
+            return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)  
+        
 
 
 class LoanTransactionView(APIView):

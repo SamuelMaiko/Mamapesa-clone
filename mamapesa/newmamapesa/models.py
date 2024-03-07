@@ -14,7 +14,7 @@ from django.conf import settings
 
 
 class CustomUser(AbstractUser):
-    # phonenumber = models.CharField(max_length=15, blank=True, null=True)
+    phonenumber = models.CharField(max_length=15, blank=True, null=True)
     idnumber = models.CharField(max_length=20, unique=True, blank=True, null=True)
     email=models.EmailField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -132,6 +132,10 @@ class Loan(models.Model):
     # repayments = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     # helper function to calculte amount disbursed in save() method
+    
+    class Meta:
+        ordering=["-due_date"]
+        
     def generate_amount_disbursed(self):
         interest_rate = Decimal(str(self.interest_rate))
         self.amount_disbursed = self.amount * (1 - interest_rate / 100)
@@ -142,17 +146,29 @@ class Loan(models.Model):
        self.due_date=self.application_date + timedelta(days=self.loan_duration)
 
        self.generate_amount_disbursed()
+       
+       
+       if self.repaid_amount>=self.amount:
+           self.is_active=False
+        
+        
 
        if self.is_repayment_due:
            today=date.today()
            self.grace_period_end_date=today+timedelta(self.grace_period)
 
        return super().save(*args, **kwargs) 
+   
+   
     
     def is_fully_repaid(self):
         return self.repaid_amount == self.amount
     
     def calculate_remaining_amount(self):
+        return self.amount - self.repaid_amount
+    
+    @property
+    def remaining_amount(self):
         return self.amount - self.repaid_amount
     
     @property
@@ -226,9 +242,9 @@ class LoanRepayment(models.Model):
         
 class LoanTransaction(models.Model):
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='loan_transactions')
-    type = models.CharField(max_length=20, choices=[('INCOME', 'income'), ('EXPENSE', 'expense')])
+    type = models.CharField(max_length=20, choices=[('REPAY', 'repay'), ('LOAN_DISBURSEMENT', 'loan_disbursement')])
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    description = models.TextField(blank=True, null=True)
+    description = models.TextField(blank=True, null=True, default="")
     timestamp = models.DateTimeField(default=timezone.now)
     loan = models.ForeignKey('Loan', on_delete=models.SET_NULL, null=True, blank=True, related_name='loan_transactions')
     is_successful = models.BooleanField(default=True)
@@ -238,7 +254,7 @@ class LoanTransaction(models.Model):
     # reference_number = models.CharField(max_length=50, blank=True, null=True)
 
     def __str__(self):
-        return f"Transaction by {self.user.username} - Amount: {self.amount} - Type: {self.type}"
+        return f"Transaction by {self.user.username} - Amount: {self.amount}"
 
     class Meta:
         ordering = ['-timestamp']

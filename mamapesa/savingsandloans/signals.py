@@ -1,7 +1,6 @@
 from django.dispatch import receiver, Signal
-from newmamapesa.models import SavingsItem, SavingsTransaction
+from newmamapesa.models import SavingsItem, SavingsTransaction, LoanTransaction, Loan, LoanRepayment
 from django.db.models.signals import post_save
-from newmamapesa.models import LoanTransaction, Loan, LoanRepayment
 from decimal import Decimal
 
 @receiver(post_save, sender=SavingsItem)
@@ -35,27 +34,37 @@ def create_a_transaction(sender, **kwargs):
     
         
 
+loan_disbursed=Signal()
 
-@receiver(post_save, sender=Loan)
-def create_loan_transaction(sender, instance, created, **kwargs):
-    if created:
-        LoanTransaction.objects.create(
-            user=instance.user,
-            amount=instance.amount,
-            description=f"Loan request for {instance.amount}",
-            type='expense',
-            loan=instance,
-            is_successful=True
-        )
+@receiver(loan_disbursed, sender=None)
+def create_loan_transaction(sender, **kwargs):
+    LoanTransaction.objects.create(
+        user=kwargs["user"],
+        amount=kwargs["amount"],
+        description=f"Loan disbursed for Kshs. {kwargs['amount']}",
+        type='loan_disbursement',
+        loan=kwargs["loan"]
+    )
 
-@receiver(post_save, sender=LoanRepayment)
-def create_repayment_transaction(sender, instance, created, **kwargs):
-    if created:
-        LoanTransaction.objects.create(
-            user=instance.loan.user,
-            amount=instance.amount_paid,
-            description=f"Loan repayment of {instance.amount_paid}",
-            type='income',
-            loan=instance.loan,
-            is_successful=True
-        )
+# @receiver(post_save, sender=LoanRepayment)
+# def create_repayment_transaction(sender, instance, created, **kwargs):
+#     if created:
+#         LoanTransaction.objects.create(
+#             user=instance.loan.user,
+#             amount=instance.amount_paid,
+#             description=f"Loan repayment of {instance.amount_paid}",
+#             type='income',
+#             loan=instance.loan,
+#             is_successful=True
+        # )
+        
+
+after_repay_loan=Signal()
+@receiver(after_repay_loan, sender=None)
+def create_transaction_after_repay(sender, **kwargs):
+    user=kwargs["user"]
+    loan=kwargs["loan"]
+    amount=kwargs["amount"]
+    
+    new_loan_transaction=LoanTransaction(user=user, loan=loan, amount=amount, type="repay")
+    new_loan_transaction.save()
