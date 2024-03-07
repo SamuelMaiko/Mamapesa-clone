@@ -12,8 +12,6 @@ from django.http import JsonResponse
 from .serializers import UserSerializer, UserRegisterSerializer
 from django.shortcuts import get_object_or_404
 from newmamapesa.models import CustomUser
-from rest_framework.authentication import SessionAuthentication, TokenAuthentication
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view
 
 

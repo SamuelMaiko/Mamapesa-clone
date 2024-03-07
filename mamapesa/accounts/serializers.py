@@ -7,7 +7,7 @@ class UserSerializer(serializers.ModelSerializer):
     
     class Meta:
         model=CustomUser
-        fields=['username','email','phonenumber']
+        fields=['username','email']
 
 class UserRegisterSerializer(serializers.ModelSerializer):
     idnumber = serializers.CharField(max_length=10, write_only=True, required=True)
@@ -32,12 +32,11 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         idnumber = self.validated_data['idnumber']
         phonenumber = self.validated_data['phonenumber']
 
-        # You may want to include additional validation for idnumber and phonenumber
 
         account = CustomUser(
             email=self.validated_data['email'],
             username=self.validated_data['username'],
-            idnumber=idnumber,
+            idnumber=idnumber
             phonenumber=phonenumber
         )
         account.set_password(password)

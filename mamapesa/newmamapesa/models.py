@@ -4,7 +4,6 @@ from django.utils import timezone
 from django.contrib.auth.models import AbstractUser, Group, Permission
 from datetime import timedelta, date
 from decimal import Decimal
-from django.dispatch import receiver
 from django.conf import settings
 
 
@@ -20,7 +19,6 @@ class CustomUser(AbstractUser):
     user_permissions = models.ManyToManyField(Permission, related_name='customuser_set')
     loan_owed = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     loan_limit = models.DecimalField(max_digits=10, decimal_places=2, default=8000)
-   # savings_account = models.ForeignKey('Savings', on_delete=models.CASCADE, related_name='savings_accounts', null=True, blank=True)
 
     class Meta:
         db_table="Users"
