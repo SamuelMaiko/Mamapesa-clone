@@ -34,7 +34,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 
 
         account = CustomUser(
-            email=self.validated_data['email'],
+            email=self.validated_data.get('email'),
             username=self.validated_data['username'],
             idnumber=idnumber,
             phonenumber=phonenumber
