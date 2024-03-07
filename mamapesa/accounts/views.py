@@ -54,21 +54,6 @@ class LoginWithToken(APIView):
             response_dict={"error": "Invalid credentials"}
             return JsonResponse(response_dict, status=status.HTTP_401_UNAUTHORIZED)
         
-class TestView(APIView):
-    # authentication_classes = [SessionAuthentication, TokenAuthentication]
-    # permission_classes = [IsAuthenticated]
-    
-    def get(self,request):
-        response_dict=dict(message="The tokens work",message1="The tokens work",message2="The tokens work",message3="The tokens work")
-        if request.user:
-            response_dict["user"]=request.user.username
-        return JsonResponse(response_dict, status=status.HTTP_200_OK)
-    
-# class LogoutView(APIView):
-#     def
-#     request.user.auth_token.delete()
-
-# Create your views here.
 @api_view(['POST'])
 def user_registration(request):
     if request.method == 'POST':
@@ -91,21 +76,3 @@ def user_registration(request):
             }
 
             return Response(data, status=status.HTTP_400_BAD_REQUEST)
-# class UserLoginView(APIView):
-#     def post(self, request):
-#         serializer = UserLoginSerializer(data=request.data)
-#         serializer.is_valid(raise_exception=True)
-#         user = serializer.validated_data['user']
-#         token, created = Token.objects.get_or_create(user=user)
-
-#         if not created:
-#             # Token already exists, no need to create a new one
-#             # You can handle this situation if needed
-#             pass
-
-#         return Response({
-#             'token': token.key,
-#             'username': user.username,
-#             'email': user.email
-#         }, status=status.HTTP_200_OK)    
-
