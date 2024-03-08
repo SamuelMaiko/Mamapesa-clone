@@ -1,13 +1,14 @@
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
-from .serializers import SavingsAccountSerializer, SavingsItemSerializer, SavingsTransactionSerializer,LoanRequestSerializer, LoanTransactionSerializer, CustomUserSerializer
+# from .serializers import SavingsAccountSerializer, SavingsItemSerializer, SavingsTransactionSerializer,LoanRequestSerializer, LoanTransactionSerializer, CustomUserSerializer
+from .serializers import SavingsAccountSerializer, SavingsItemSerializer,LoanRequestSerializer, CustomUserSerializer
 from rest_framework import status, generics
 from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
-from newmamapesa.models import Loan, Savings, SavingsItem, Item, LoanTransaction
-from .serializers import LoanRequestSerializer, LoanTransactionSerializer
+from newmamapesa.models import Loan, Savings, SavingsItem, Item
+from .serializers import LoanRequestSerializer
 from decimal import Decimal
 from .signals import after_deposit, after_repay_loan, loan_disbursed
 from .serializer_helpers import get_all_transactions

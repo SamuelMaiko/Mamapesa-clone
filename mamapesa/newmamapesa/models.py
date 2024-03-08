@@ -150,9 +150,9 @@ class Item(models.Model):
 class Savings(models.Model):
     user=models.OneToOneField(CustomUser , on_delete=models.CASCADE, related_name="savings_account")
     amount_saved = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    items=models.ManyToManyField(Item ,through="SavingsItem", related_name="savings")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    items=models.ManyToManyField(Item ,through="SavingsItem", related_name="savings")
     # start_date = models.DateField(default=timezone.now)
     # is_active = models.BooleanField(default=True)
 
@@ -229,38 +229,38 @@ class SavingsItem(models.Model):
             return max(0, remaining_days)
         else:
             return None
-class SavingsTransaction(models.Model):
-    TRANSACTION_TYPES=[
-        ("WITHDRAWAL", "withdrawal"),
-        ("DEPOSIT", "deposit"),
-    ]
-    type=models.CharField(max_length=25, choices=TRANSACTION_TYPES)
-    amount=models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
-    savings_item=models.ForeignKey(SavingsItem, on_delete=models.CASCADE, related_name="transactions")
-    payment_method=models.ForeignKey("PaymentMethod", on_delete=models.SET_NULL, null=True, blank=True)
-    timestamp=models.DateTimeField(auto_now_add=True)
+# class SavingsTransaction(models.Model):
+#     TRANSACTION_TYPES=[
+#         ("WITHDRAWAL", "withdrawal"),
+#         ("DEPOSIT", "deposit"),
+#     ]
+#     type=models.CharField(max_length=25, choices=TRANSACTION_TYPES)
+#     amount=models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+#     savings_item=models.ForeignKey(SavingsItem, on_delete=models.CASCADE, related_name="transactions")
+#     payment_method=models.ForeignKey("PaymentMethod", on_delete=models.SET_NULL, null=True, blank=True)
+#     timestamp=models.DateTimeField(auto_now_add=True)
     
-    def __str__(self):
-        return f"{self.savings_item.savings.user.username}'s transaction of {self.amount} on {self.timestamp}"
-    class Meta:
-        db_table="Savings_Transactions"
-        ordering=['-timestamp',]
+#     def __str__(self):
+#         return f"{self.savings_item.savings.user.username}'s transaction of {self.amount} on {self.timestamp}"
+#     class Meta:
+#         db_table="Savings_Transactions"
+#         ordering=['-timestamp',]
     
   
-class LoanTransaction(models.Model):
-    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='loan_transactions')
-    type = models.CharField(max_length=20, choices=[('LOAN_REPAYMENT', 'loan_repayment'), ('LOAN_DISBURSEMENT', 'loan_disbursement')], default="")
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    description = models.TextField(blank=True, null=True, default="")
-    timestamp = models.DateTimeField(default=timezone.now)
-    loan = models.ForeignKey('Loan', on_delete=models.SET_NULL, null=True, blank=True, related_name='loan_transactions')
-    is_successful = models.BooleanField(default=True)
+# class LoanTransaction(models.Model):
+#     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='loan_transactions')
+#     type = models.CharField(max_length=20, choices=[('LOAN_REPAYMENT', 'loan_repayment'), ('LOAN_DISBURSEMENT', 'loan_disbursement')], default="")
+#     amount = models.DecimalField(max_digits=10, decimal_places=2)
+#     description = models.TextField(blank=True, null=True, default="")
+#     timestamp = models.DateTimeField(default=timezone.now)
+#     loan = models.ForeignKey('Loan', on_delete=models.SET_NULL, null=True, blank=True, related_name='loan_transactions')
+#     is_successful = models.BooleanField(default=True)
   
-    def __str__(self):
-        return f"{self.type} for {self.user.username} - Amount: {self.amount} for Loan {self.pk}"
-    class Meta:
-        ordering = ['-timestamp']
-        db_table="Loan_Transactions"
+#     def __str__(self):
+#         return f"{self.type} for {self.user.username} - Amount: {self.amount} for Loan {self.pk}"
+#     class Meta:
+#         ordering = ['-timestamp']
+#         db_table="Loan_Transactions"
  
 
 class PaymentMethod(models.Model):
@@ -293,6 +293,7 @@ class Currency(models.Model):
 
     class Meta:
         db_table="Currencies"
+        
     def __str__(self):
         return self.code
     
@@ -304,16 +305,52 @@ class Payment(models.Model):
         ("FAILED","failed"),
     ]
     
+    TRANSACTION_TYPES = [
+        ('LOAN_DISBURSEMENT', 'Loan Disbursement'),
+        ('LOAN-REPAYMENT', 'Loan Repayment'),
+        ('SAVINGS_DEPOSIT', 'Savings Deposit'),
+        ('SUPPLIER_WITHDRAWAL', 'Supplier Withdrawal'),
+        ('LOAN_SERVICE_CHARGE', 'Loan Service Charge'),
+    ]
+    
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    payment_date = models.DateTimeField(auto_now_add=True)
-    payment_method = models.ForeignKey(PaymentMethod, on_delete=models.SET_NULL, related_name="payments")
+    type= models.CharField(max_length=50, choices=TRANSACTION_TYPES)
     transaction_id = models.CharField(max_length=100, blank=True, null=True)
+    payment_method = models.ForeignKey(PaymentMethod, on_delete=models.SET_NULL, related_name="payments", null=True)
     payment_ref = models.CharField(max_length=100, blank=True, null=True)
     status = models.CharField(max_length=50,choices=STATUS_CHOICES, default='pending')
+    payment_date = models.DateTimeField(auto_now_add=True)
+    loan = models.ForeignKey(Loan, on_delete=models.SET_NULL, null=True, blank=True)
+    savings = models.ForeignKey(Savings, on_delete=models.SET_NULL, null=True, blank=True)
     
     class Meta:
         db_table="Payments"
         
     def __str__(self):
-        return f"{self.customer.user.username}'s payment {self.id}"
+        return f"{self.customer.user.username}'s {self.type} payment_number {self.id}"
+    
+class Communication(models.Model):
+    COMMUNICATION_TYPES = [
+        ('loan_submission', 'Loan Submission'),
+        ('loan_approval', 'Loan Approval'),
+        ('loan_rejection', 'Loan Rejection'),
+        ('loan_disbursement', 'Loan Disbursement'),
+        ('loan_payment', 'Loan Payment'),
+        ('savings_deposit', 'Savings Deposit'),
+        ('savings_withdrawal', 'Savings Withdrawal'),
+    ]
+
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    communication_type = models.CharField(max_length=20, choices=COMMUNICATION_TYPES)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    message = models.TextField()
+    
+    class Meta:
+        db_table="Communications"
+
+    def __str__(self):
+        return f"{self.get_communication_type_display()} for {self.user.username} at {self.timestamp}"
+    
+    
+    
