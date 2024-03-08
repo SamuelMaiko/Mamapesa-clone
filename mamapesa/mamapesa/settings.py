@@ -103,18 +103,18 @@ DATABASES = {
     # }
 }
 DATABASES = {
-    # 'default': {
-    #     'ENGINE': 'django.db.backends.sqlite3',
-    #     'NAME': BASE_DIR / 'db.sqlite3',
-    # }
-     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'railway',
-        'USER': 'postgres',
-        'PASSWORD': '1cdA3E2A3bccbcDegEEbbgbe1b6dC552',
-        'HOST': 'viaduct.proxy.rlwy.net',
-        'PORT': '22761',
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
+    #  'default': {
+    #     'ENGINE': 'django.db.backends.postgresql',
+    #     'NAME': 'railway',
+    #     'USER': 'postgres',
+    #     'PASSWORD': '1cdA3E2A3bccbcDegEEbbgbe1b6dC552',
+    #     'HOST': 'viaduct.proxy.rlwy.net',
+    #     'PORT': '22761',
+    # }
 }
 
 # DATABASES = {
