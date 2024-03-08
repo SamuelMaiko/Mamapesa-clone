@@ -10,30 +10,32 @@ from django.conf import settings
 
 class CustomUser(AbstractUser):
     phonenumber = models.CharField(max_length=15, blank=True, null=True)
-    idnumber = models.CharField(max_length=20, unique=True, blank=True, null=True)
-    email=models.EmailField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    groups = models.ManyToManyField(Group, related_name='customuser_set')
-    interest_rate = models.DecimalField(max_digits=5, decimal_places=2, default=5)  # Add interest_rate field
-    user_permissions = models.ManyToManyField(Permission, related_name='customuser_set')
-    loan_owed = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    loan_limit = models.DecimalField(max_digits=10, decimal_places=2, default=8000)
+    
+    # idnumber = models.CharField(max_length=20, unique=True, blank=True, null=True)
+    # email=models.EmailField(null=True, blank=True)
+    # created_at = models.DateTimeField(auto_now_add=True)
+    # updated_at = models.DateTimeField(auto_now=True)
+    # groups = models.ManyToManyField(Group, related_name='customuser_set')
+    # interest_rate = models.DecimalField(max_digits=5, decimal_places=2, default=5)  # Add interest_rate field
+    # user_permissions = models.ManyToManyField(Permission, related_name='customuser_set')
+    # loan_owed = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    # loan_limit = models.DecimalField(max_digits=10, decimal_places=2, default=8000)
 
     class Meta:
         db_table="Users"
 
-    @property
-    def amount_borrowable(self):
-        return self.loan_limit-self.loan_owed
+    # @property
+    # def amount_borrowable(self):
+    #     return self.loan_limit-self.loan_owed
     
-    @property
-    def is_eligible(self):
-        return self.loan_limit>0
+    # @property
+    # def is_eligible(self):
+    #     return self.loan_limit>0
 
     def _str_(self):
 
-        return self.username
+        return self.phonenumber
+
     
 class UserDetails(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='details')
