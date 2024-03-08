@@ -1,31 +1,12 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from django.contrib.auth.models import AbstractUser, Group, Permission
+from django.contrib.auth.models import AbstractUser
 from datetime import timedelta, date
 from decimal import Decimal
 from django.conf import settings
 
 
-
-    
-    
-    # idnumber = models.CharField(max_length=20, unique=True, blank=True, null=True)
-    # email=models.EmailField(null=True, blank=True)
-    # groups = models.ManyToManyField(Group, related_name='customuser_set')
-    # interest_rate = models.DecimalField(max_digits=5, decimal_places=2, default=5)  # Add interest_rate field
-    # user_permissions = models.ManyToManyField(Permission, related_name='customuser_set')
-    # loan_owed = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    # loan_limit = models.DecimalField(max_digits=10, decimal_places=2, default=8000)
-
-
-    # @property
-    # def amount_borrowable(self):
-    #     return self.loan_limit-self.loan_owed
-    
-    # @property
-    # def is_eligible(self):
-    #     return self.loan_limit>0
 class CustomUser(AbstractUser):
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -68,10 +49,6 @@ class Loan(models.Model):
     default_rate = models.DecimalField(max_digits=5, decimal_places=2, default=5)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True) 
-    # collateral = models.FileField(upload_to='collaterals/', blank=True, null=True)
-    # grace_period = models.IntegerField(default=30)
-    # grace_period_end_date = models.DateField(null=True, blank=True)  # Add due_date field
-    # late_payment_penalty_rate = models.DecimalField(max_digits=5, decimal_places=2, default=5)
 
     def __str__(self):
         return f"{self.user.username}'s  loan {self.id} of Kshs.{self.amount}"
@@ -79,61 +56,6 @@ class Loan(models.Model):
             db_table="Loans"
             ordering=["-due_date"]
         
-    # def generate_amount_disbursed(self):
-    #     interest_rate = Decimal(str(self.interest_rate))
-    #     self.amount_disbursed = self.amount * (1 - interest_rate / 100)
-
-    # # override save() method        ````
-    # def save(self, *args, **kwargs):
-    #    self.due_date=self.application_date + timedelta(days=self.loan_duration)
-    #    self.generate_amount_disbursed()
-    #    self.fee=(self.interest_rate/100)*int(self.amount)
-    #    if self.repaid_amount>=self.amount:
-    #        self.is_active=False
-    #    if self.is_repayment_due:
-    #        today=date.today()
-    #        self.grace_period_end_date=today+timedelta(days=self.grace_period)
-    #    return super().save(*args, **kwargs) 
-   
-    # def is_fully_repaid(self):
-    #     return self.repaid_amount == self.amount
-    
-    # def calculate_remaining_amount(self):
-    #     return self.amount - self.repaid_amount
-    # @property
-    # def remaining_amount(self):
-    #     return self.amount - self.repaid_amount
-    # @property
-    # def remaining_days(self):
-    #     today=date.today()
-    #     return self.due_date-today
-    # @property
-    # def grace_period_remaining_days(self):
-    #     today=date.today()
-    #     if self.grace_period_end_date:
-    #         return self.grace_period_end_date-today
-    #     else:
-    #         return None
-    # @property
-    # def is_repayment_due(self):
-    #     today = date.today()
-    #     due_date = self.due_date  # Convert self.due_date to datetime.date
-    #     return today >= due_date
-    # # amount crossed over to the grace period
-    # @property
-    # def overdue_amount(self):
-    #     overdue_amount=self.amount-self.repaid_amount
-    #     if not self.overdue_fee>=0:
-    #         overdue_amount+=self.overdue_fee
-    #     return overdue_amount
-    # @property
-    # def overdue_fee(self):
-    #     if self.grace_period_end_date:
-    #         overdue_fee=self.overdue_amount*(self.late_payment_penalty_rate/100)
-    #     else:
-    #         overdue_fee=0
-    #     return overdue_fee
-    
     
 class Item(models.Model):
     name = models.CharField(max_length=255)
@@ -229,39 +151,6 @@ class SavingsItem(models.Model):
             return max(0, remaining_days)
         else:
             return None
-# class SavingsTransaction(models.Model):
-#     TRANSACTION_TYPES=[
-#         ("WITHDRAWAL", "withdrawal"),
-#         ("DEPOSIT", "deposit"),
-#     ]
-#     type=models.CharField(max_length=25, choices=TRANSACTION_TYPES)
-#     amount=models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
-#     savings_item=models.ForeignKey(SavingsItem, on_delete=models.CASCADE, related_name="transactions")
-#     payment_method=models.ForeignKey("PaymentMethod", on_delete=models.SET_NULL, null=True, blank=True)
-#     timestamp=models.DateTimeField(auto_now_add=True)
-    
-#     def __str__(self):
-#         return f"{self.savings_item.savings.user.username}'s transaction of {self.amount} on {self.timestamp}"
-#     class Meta:
-#         db_table="Savings_Transactions"
-#         ordering=['-timestamp',]
-    
-  
-# class LoanTransaction(models.Model):
-#     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='loan_transactions')
-#     type = models.CharField(max_length=20, choices=[('LOAN_REPAYMENT', 'loan_repayment'), ('LOAN_DISBURSEMENT', 'loan_disbursement')], default="")
-#     amount = models.DecimalField(max_digits=10, decimal_places=2)
-#     description = models.TextField(blank=True, null=True, default="")
-#     timestamp = models.DateTimeField(default=timezone.now)
-#     loan = models.ForeignKey('Loan', on_delete=models.SET_NULL, null=True, blank=True, related_name='loan_transactions')
-#     is_successful = models.BooleanField(default=True)
-  
-#     def __str__(self):
-#         return f"{self.type} for {self.user.username} - Amount: {self.amount} for Loan {self.pk}"
-#     class Meta:
-#         ordering = ['-timestamp']
-#         db_table="Loan_Transactions"
- 
 
 class PaymentMethod(models.Model):
     CURRENCY_OPTIONS=[
@@ -352,5 +241,144 @@ class Communication(models.Model):
     def __str__(self):
         return f"{self.get_communication_type_display()} for {self.user.username} at {self.timestamp}"
     
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    # idnumber = models.CharField(max_length=20, unique=True, blank=True, null=True)
+    # email=models.EmailField(null=True, blank=True)
+    # groups = models.ManyToManyField(Group, related_name='customuser_set')
+    # interest_rate = models.DecimalField(max_digits=5, decimal_places=2, default=5)  # Add interest_rate field
+    # user_permissions = models.ManyToManyField(Permission, related_name='customuser_set')
+    # loan_owed = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    # loan_limit = models.DecimalField(max_digits=10, decimal_places=2, default=8000)
+
+
+    # @property
+    # def amount_borrowable(self):
+    #     return self.loan_limit-self.loan_owed
+    
+    # @property
+    # def is_eligible(self):
+    #     return self.loan_limit>0
+
+
+
+# class SavingsTransaction(models.Model):
+#     TRANSACTION_TYPES=[
+#         ("WITHDRAWAL", "withdrawal"),
+#         ("DEPOSIT", "deposit"),
+#     ]
+#     type=models.CharField(max_length=25, choices=TRANSACTION_TYPES)
+#     amount=models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+#     savings_item=models.ForeignKey(SavingsItem, on_delete=models.CASCADE, related_name="transactions")
+#     payment_method=models.ForeignKey("PaymentMethod", on_delete=models.SET_NULL, null=True, blank=True)
+#     timestamp=models.DateTimeField(auto_now_add=True)
+    
+#     def __str__(self):
+#         return f"{self.savings_item.savings.user.username}'s transaction of {self.amount} on {self.timestamp}"
+#     class Meta:
+#         db_table="Savings_Transactions"
+#         ordering=['-timestamp',]
+    
+  
+# class LoanTransaction(models.Model):
+#     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='loan_transactions')
+#     type = models.CharField(max_length=20, choices=[('LOAN_REPAYMENT', 'loan_repayment'), ('LOAN_DISBURSEMENT', 'loan_disbursement')], default="")
+#     amount = models.DecimalField(max_digits=10, decimal_places=2)
+#     description = models.TextField(blank=True, null=True, default="")
+#     timestamp = models.DateTimeField(default=timezone.now)
+#     loan = models.ForeignKey('Loan', on_delete=models.SET_NULL, null=True, blank=True, related_name='loan_transactions')
+#     is_successful = models.BooleanField(default=True)
+  
+#     def __str__(self):
+#         return f"{self.type} for {self.user.username} - Amount: {self.amount} for Loan {self.pk}"
+#     class Meta:
+#         ordering = ['-timestamp']
+#         db_table="Loan_Transactions"
+ 
+
+# collateral = models.FileField(upload_to='collaterals/', blank=True, null=True)
+    # grace_period = models.IntegerField(default=30)
+    # grace_period_end_date = models.DateField(null=True, blank=True)  # Add due_date field
+    # late_payment_penalty_rate = models.DecimalField(max_digits=5, decimal_places=2, default=5)
+    # def generate_amount_disbursed(self):
+    #     interest_rate = Decimal(str(self.interest_rate))
+    #     self.amount_disbursed = self.amount * (1 - interest_rate / 100)
+
+    # # override save() method        ````
+    # def save(self, *args, **kwargs):
+    #    self.due_date=self.application_date + timedelta(days=self.loan_duration)
+    #    self.generate_amount_disbursed()
+    #    self.fee=(self.interest_rate/100)*int(self.amount)
+    #    if self.repaid_amount>=self.amount:
+    #        self.is_active=False
+    #    if self.is_repayment_due:
+    #        today=date.today()
+    #        self.grace_period_end_date=today+timedelta(days=self.grace_period)
+    #    return super().save(*args, **kwargs) 
+   
+    # def is_fully_repaid(self):
+    #     return self.repaid_amount == self.amount
+    
+    # def calculate_remaining_amount(self):
+    #     return self.amount - self.repaid_amount
+    # @property
+    # def remaining_amount(self):
+    #     return self.amount - self.repaid_amount
+    # @property
+    # def remaining_days(self):
+    #     today=date.today()
+    #     return self.due_date-today
+    # @property
+    # def grace_period_remaining_days(self):
+    #     today=date.today()
+    #     if self.grace_period_end_date:
+    #         return self.grace_period_end_date-today
+    #     else:
+    #         return None
+    # @property
+    # def is_repayment_due(self):
+    #     today = date.today()
+    #     due_date = self.due_date  # Convert self.due_date to datetime.date
+    #     return today >= due_date
+    # # amount crossed over to the grace period
+    # @property
+    # def overdue_amount(self):
+    #     overdue_amount=self.amount-self.repaid_amount
+    #     if not self.overdue_fee>=0:
+    #         overdue_amount+=self.overdue_fee
+    #     return overdue_amount
+    # @property
+    # def overdue_fee(self):
+    #     if self.grace_period_end_date:
+    #         overdue_fee=self.overdue_amount*(self.late_payment_penalty_rate/100)
+    #     else:
+    #         overdue_fee=0
+    #     return overdue_fee
     
     
