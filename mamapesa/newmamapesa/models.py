@@ -2,33 +2,46 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
+
 from datetime import timedelta, date
 from decimal import Decimal
 from django.conf import settings
+from .managers import CustomUserManager
 
 
-class CustomUser(AbstractUser):
-    phone_number = models.CharField(max_length=15, blank=True, null=True)
+class CustomUser(AbstractUser, PermissionsMixin):
+    phone_number = models.CharField(max_length=10, unique=True, blank=True, null=True)
+    username = models.CharField(max_length=15, unique=True, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    USERNAME_FIELD = 'phone_number'
+    EMAIL_FIELD = 'email'
+    REQUIRED_FIELDS = ['email']
+
+    objects = CustomUserManager()
     class Meta:
         db_table="Users"
+
+    def __str__(self):
+        return self.phone_number
     
-    def _str_(self):
-        return self.username
+    
 
 class Customer(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='customer')
     account_number = models.CharField(max_length=20)
-    id_number = models.CharField(max_length=20, unique=True, null=False, blank=False)
-    address = models.CharField(max_length=100)
+    id_number = models.CharField(max_length=8, null=False, blank=False)
+    county = models.CharField(max_length=100, null=True, blank=True)
+    loan_owed = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    loan_limit = models.DecimalField(max_digits=10, decimal_places=2, default=1000)
     trust_score = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
-        return f"Details for {self.user.username}'s Customer profile"
+        return f"Details for {self.user.first_name}'s Customer profile"
     class Meta:
         db_table="Customer"
 class Loan(models.Model):
@@ -79,7 +92,7 @@ class Savings(models.Model):
     # is_active = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"{self.user.username} - {self.amount_saved} (Start: {self.start_date})"
+        return f"{self.user.phone_number} - {self.amount_saved} "
 
     class Meta:
         ordering = ['-created_at']
@@ -115,7 +128,9 @@ class SavingsItem(models.Model):
         return self.amount_saved>=self.target_amount
     @property
     def remaining_amount(self):
-        return self.target_amount-self.amount_saved
+        if not self.achieved:
+            return self.target_amount-self.amount_saved
+        return 0
     @property
     def installment(self):
         return round(self.target_amount/self.saving_period, 2)
@@ -131,6 +146,11 @@ class SavingsItem(models.Model):
         return round(self.target_amount-total, 2)
     @property
     def is_achieved(self):
+        if self.achieved:
+            self.in_progress=False
+            self.save()
+            return True
+            
         if self.amount_saved>=self.target_amount:
             self.achieved=True
             self.in_progress=False
@@ -146,7 +166,8 @@ class SavingsItem(models.Model):
         """Calculate the number of days remaining until the savings goal is reached."""
         if self.due_date:
             today = date.today()
-            today = today + timedelta(days=10)
+            # _____________________________SIMULATING DAYS AHEAD__________________
+            # today = today + timedelta(days=10)
             remaining_days = (self.due_date - today).days
             return max(0, remaining_days)
         else:
@@ -212,12 +233,18 @@ class Payment(models.Model):
     payment_date = models.DateTimeField(auto_now_add=True)
     loan = models.ForeignKey(Loan, on_delete=models.SET_NULL, null=True, blank=True)
     savings = models.ForeignKey(Savings, on_delete=models.SET_NULL, null=True, blank=True)
+    savings_item = models.ForeignKey(SavingsItem, on_delete=models.SET_NULL, null=True, blank=True)
+    receiving_till = models.CharField(max_length=15, null=True, blank=True)
+    receiving_number = models.CharField(max_length=15, null=True, blank=True)
+    
+    
     
     class Meta:
         db_table="Payments"
+        ordering=("-payment_date",)
         
     def __str__(self):
-        return f"{self.customer.user.username}'s {self.type} payment_number {self.id}"
+        return f"{self.customer.user.first_name}'s {self.type} payment_number {self.id}"
     
 class Communication(models.Model):
     COMMUNICATION_TYPES = [
@@ -285,6 +312,26 @@ class Communication(models.Model):
     # @property
     # def is_eligible(self):
     #     return self.loan_limit>0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

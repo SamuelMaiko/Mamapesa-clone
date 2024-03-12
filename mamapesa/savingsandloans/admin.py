@@ -5,5 +5,5 @@ from django.contrib import admin
 from newmamapesa.models import Loan, CustomUser
 
 admin.site.register(Loan)
-admin.site.register(CustomUser)
+# admin.site.register(CustomUser)
 # admin.site.register(LoanTransaction)
