@@ -7,6 +7,7 @@ class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(max_length=10, write_only=True, required=True)
     first_name = serializers.CharField(max_length=15, required=True)
     last_name = serializers.CharField(max_length=15, required=True)
+    email = serializers.EmailField(max_length=15, required=True)
 
     def create(self, validated_data):
         user=CustomUser.objects.create_user(**validated_data)
@@ -18,4 +19,3 @@ class UserSerializer(serializers.ModelSerializer):
             'password': {'write_only': True}
         }
         
-    
