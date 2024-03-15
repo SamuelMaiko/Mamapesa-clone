@@ -1,7 +1,5 @@
 from rest_framework import serializers
-# from newmamapesa.models import Loan,Savings, SavingsItem,SavingsTransaction, Item, LoanTransaction, CustomUser
-from newmamapesa.models import Loan,Savings, SavingsItem, Item, CustomUser, Payment
-
+from savingsandloans.models import Loan, Savings, SavingsItem, Item, Payment
 class SavingsAccountSerializer(serializers.ModelSerializer):
     class Meta:
         model=Savings

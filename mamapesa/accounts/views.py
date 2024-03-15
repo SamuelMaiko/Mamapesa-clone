@@ -10,7 +10,7 @@ from django.contrib.auth import authenticate, login
 from rest_framework.authtoken.models import Token
 from django.http import JsonResponse
 from .serializers import UserSerializer, UserUpdateSerializer
-from newmamapesa.models import CustomUser
+from .models import CustomUser
 from rest_framework.decorators import api_view
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
@@ -20,7 +20,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.core.mail import EmailMessage
 from django.contrib.sites.shortcuts import get_current_site
 from django.template.loader import render_to_string
-from mamapesa.settings import EMAIL_HOST_USER
+from core.settings import EMAIL_HOST_USER
 from django.contrib.auth.forms import SetPasswordForm
 
 

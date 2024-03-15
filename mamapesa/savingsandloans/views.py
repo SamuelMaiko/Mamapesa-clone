@@ -6,7 +6,7 @@ from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
-from newmamapesa.models import Loan, Savings, SavingsItem, Item,Payment
+from .models import Savings, SavingsItem, Item,Payment
 from decimal import Decimal
 from .signals import after_deposit, loan_disbursed,update_transaction_status,after_loan_repayment, update_savings_payment_status
 from .serializer_helpers import get_all_transactions

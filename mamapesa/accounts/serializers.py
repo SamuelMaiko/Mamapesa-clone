@@ -1,7 +1,6 @@
 from rest_framework import serializers
-from newmamapesa.models import CustomUser
 from django.contrib.auth import authenticate
-from newmamapesa.models import CustomUser
+from .models import CustomUser
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(max_length=10, write_only=True, required=True)
