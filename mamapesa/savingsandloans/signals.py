@@ -1,61 +1,127 @@
 from django.dispatch import receiver, Signal
-from newmamapesa.models import SavingsItem, SavingsTransaction
+# from newmamapesa.models import SavingsItem, SavingsTransaction, LoanTransaction
+from newmamapesa.models import SavingsItem, Payment
 from django.db.models.signals import post_save
-from newmamapesa.models import LoanTransaction, Loan, LoanRepayment
 from decimal import Decimal
+from django.db.models import Q
 
 @receiver(post_save, sender=SavingsItem)
 def update_saving_account_total_amount(sender, instance, created, **kwargs):
-    # if created:
     all_savings_items=instance.savings.savings_items.all()
     total_price=Decimal("0.00")
     for each in all_savings_items:
         total_price+=each.amount_saved
         
     instance.savings.amount_saved=total_price
-    # print(f"done {total_price}")
     instance.savings.save()
-    
     
 # after_deposit - signal sent after a deposit is made 
 after_deposit=Signal()
-    
-@receiver(after_deposit)
+@receiver(after_deposit, sender=None)
 def create_a_transaction(sender, **kwargs):
+    customer=kwargs["user"].customer
     amount=kwargs["amount"]
-    savings_item=kwargs["savings_item"]
-    payment_method=kwargs["payment_method"]
     type=kwargs["type"]
+    transaction_id=kwargs["transaction_id"]
+    payment_method=1
+    payment_ref=kwargs["payment_ref"]
+    status=kwargs["status"]
+    savings_item=kwargs["savings_item"]
+    receiving_till=kwargs.get("receiving_till")
     
-    # print(type)
-    new_transaction=SavingsTransaction(amount=amount, savings_item_id=savings_item, payment_method_id=payment_method, type=type)
-    new_transaction.save()
+    new_payment=Payment(
+        customer=customer,
+        amount=amount,
+        type=type,
+        transaction_id=transaction_id,
+        payment_method_id=payment_method,
+        payment_ref=payment_ref,
+        status=status,
+        savings_item=savings_item,
+        receiving_till=receiving_till
+        )
+    new_payment.save()
+
+update_savings_payment_status=Signal()
+@receiver(update_savings_payment_status, sender=None)
+def update_status(sender, **kwargs):
+    customer=kwargs["user"].customer
+    status=kwargs["status"]
+    type=kwargs["type"]
+    savings_item=kwargs["savings_item"]
+    
+    specific_payment=Payment.objects.filter(Q(customer=customer) & Q(savings_item=savings_item) & Q(type=type)).first()
+    specific_payment.status=status
+    specific_payment.save()
     
     
-    
+loan_disbursed = Signal()
+
+@receiver(loan_disbursed, sender=None)
+def create_loan_transaction(sender, **kwargs):
+    try:
+        Payment.objects.create(
+            customer=kwargs["user"].customer,
+            amount=kwargs["amount"],
+            type='Loan Disbursement',
+            transaction_id=kwargs["transaction_id"],
+            payment_method_id=1,
+            payment_ref=kwargs["payment_ref"],
+            loan=kwargs["loan"]
+        )
+
+    except KeyError as e:
+        print(f"Error in create_loan_transaction signal: Missing key {e}")
+
+    except Exception as e:
+        print(f"Error in create_loan_transaction signal: {e}")
+
+
+
+after_loan_repayment = Signal()
+
+@receiver(after_loan_repayment, sender=None)
+def create_loan_repayment(sender, **kwargs):
+    try:
+        Payment.objects.create(
+            customer=kwargs["user"].customer,
+            amount=kwargs["amount"],
+            type='Loan Repayment',
+            transaction_id=kwargs["transaction_id"],
+            payment_method_id=1,
+            payment_ref=kwargs["payment_ref"],
+            loan=kwargs["loan"]
+        )
         
+        loan = kwargs["loan"]
+        loan.is_disbursed = True
+        loan.save()
 
+    except KeyError as e:
+        print(f"Error in create_loan_repayment signal: Missing key {e}")
 
-@receiver(post_save, sender=Loan)
-def create_loan_transaction(sender, instance, created, **kwargs):
-    if created:
-        LoanTransaction.objects.create(
-            user=instance.user,
-            amount=instance.amount,
-            description=f"Loan request for {instance.amount}",
-            type='expense',
-            loan=instance,
-            is_successful=True
-        )
+    except Exception as e:
+        print(f"Error in create_loan_repayment signal: {e}")
 
-@receiver(post_save, sender=LoanRepayment)
-def create_repayment_transaction(sender, instance, created, **kwargs):
-    if created:
-        LoanTransaction.objects.create(
-            user=instance.loan.user,
-            amount=instance.amount_paid,
-            description=f"Loan repayment of {instance.amount_paid}",
-            type='income',
-            loan=instance.loan,
-            is_successful=True
-        )
+update_transaction_status = Signal()
+
+@receiver(update_transaction_status, sender=None)
+def update_transaction(sender, **kwargs):
+    try:
+        status = kwargs["status"]
+        loan = kwargs["loan"]
+        type = kwargs["type"]
+
+        payment = Payment.objects.filter(Q(loan=loan) & Q(type=type)).first()
+
+        if payment:
+            payment.status = status
+            payment.save()
+        else:
+            print(f"No payment record found for loan {loan} and type {type}")
+
+    except KeyError as e:
+        print(f"Error in update_transaction signal: Missing key {e}")
+
+    except Exception as e:
+        print(f"Error in update_transaction signal: {e}")

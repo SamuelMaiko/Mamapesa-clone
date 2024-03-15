@@ -9,6 +9,32 @@ https://docs.djangoproject.com/en/5.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
+# from decouple import config
+
+# EMAIL_HOST=config('EMAIL_HOST')
+# EMAIL_BACKEND=config("EMAIL_BACKEND")
+# EMAIL_PORT=config('EMAIL_PORT', default=587, cast=int)
+# EMAIL_HOST_USER=config('EMAIL_HOST_USER')
+# EMAIL_HOST_PASSWORD=config('EMAIL_HOST_PASSWORD')
+# EMAIL_USE_TLS=config('EMAIL_USE_TLS', default=True,cast=bool)
+# EMAIL_USE_SSL=config('EMAIL_USE_SSL', default=False, cast=bool)
+import os
+
+# EMAIL_HOST = os.environ.get('EMAIL_HOST')
+# EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+# EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+# EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+# EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+# EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() == 'true'
+# EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'False').lower() == 'true'
+EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST="smtp.gmail.com"
+EMAIL_PORT=587
+EMAIL_HOST_USER="sammymaiko721@gmail.com"
+EMAIL_HOST_PASSWORD="edcy kafn qnjj htak"
+EMAIL_USE_TLS=True
+EMAIL_USE_SSL=False
+
 
 from pathlib import Path
 
@@ -68,7 +94,7 @@ ROOT_URLCONF = 'mamapesa.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': ['templates',],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -87,13 +113,27 @@ WSGI_APPLICATION = 'mamapesa.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+#     #     'ENGINE': 'django.db.backends.sqlite3',
+#     # 'default': {
+#     #     'ENGINE': 'django.db.backends.postgresql',
+#     #     'NAME': 'railway',
+#     #     'USER': 'postgres',
+#     #     'PASSWORD': '1cdA3E2A3bccbcDegEEbbgbe1b6dC552',
+#     #     'HOST': 'viaduct.proxy.rlwy.net',
+#     #     'PORT': '22761',
+#     # }
+# }
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
-    #     'ENGINE': 'django.db.backends.sqlite3',
-    # 'default': {
+    #  'default': {
     #     'ENGINE': 'django.db.backends.postgresql',
     #     'NAME': 'railway',
     #     'USER': 'postgres',
@@ -101,12 +141,6 @@ DATABASES = {
     #     'HOST': 'viaduct.proxy.rlwy.net',
     #     'PORT': '22761',
     # }
-}
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
 }
 
 # DATABASES = {
@@ -138,6 +172,11 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
+]
+
+AUTHENTICATION_BACKENDS = [
+    'newmamapesa.backends.PhoneBackend',
+    'django.contrib.auth.backends.ModelBackend',
 ]
 
 

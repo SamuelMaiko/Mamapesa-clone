@@ -1,20 +1,18 @@
-from django.shortcuts import render
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
-from .serializers import SavingsAccountSerializer, SavingsItemSerializer, SavingsTransactionSerializer,LoanRequestSerializer, LoanRepaymentSerializer, LoanTransactionSerializer, CustomUserSerializer
+from .serializers import SavingsAccountSerializer, SavingsItemSerializer,LoanRequestSerializer, CustomUserSerializer
 from rest_framework import status, generics
 from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
-from newmamapesa.models import Loan, LoanRepayment, Savings, SavingsItem, SavingsTransaction, Item, LoanTransaction
-from .serializers import LoanRequestSerializer, LoanRepaymentSerializer, LoanTransactionSerializer
-from decimal import Decimal
-from django.utils import timezone
-from datetime import timedelta
-from .signals import after_deposit
-from .serializer_helpers import get_all_transactions
+from newmamapesa.models import Loan, Savings, SavingsItem, Item
 
+from decimal import Decimal
+from .signals import after_deposit, loan_disbursed,update_transaction_status,after_loan_repayment, update_savings_payment_status
+from .serializer_helpers import get_all_transactions
+from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 
 class SavingsAccountView(APIView):
     """
@@ -59,14 +57,15 @@ class SavingsItemView(APIView):
         condition1={'savings':user.savings_account}
         condition2={'id':id}
         #filtering the savings item belonging to user's savings account and by id 
-        specific_savings_item=SavingsItem.objects.filter(**condition1, **condition2)
+        specific_savings_item=SavingsItem.objects.filter(**condition1, **condition2).first()
         # incase user wants to access another user's savings item
-        if specific_savings_item:
+        if not specific_savings_item:
             response_dict=dict(error="Resource not found")
             return Response(response_dict, status=status.HTTP_404_NOT_FOUND)
-        
-        serializer=SavingsItemSerializer(specific_savings_item)        
-        return JsonResponse(serializer.data, safe=False, status=status.HTTP_200_OK)
+        # print()
+        serializer=SavingsItemSerializer(specific_savings_item)  
+        # print(serializer.data)      
+        return JsonResponse(serializer.data, status=status.HTTP_200_OK)
 class DepositSavingsView(APIView):
     """
     API endpoint for depositing into a specific savings item
@@ -96,8 +95,39 @@ class DepositSavingsView(APIView):
                 # add the deposited amount to the amount saved
                 specific_save_item.amount_saved+=deposit_amount
                 specific_save_item.save()
-                # send signal to create transaction
-                after_deposit.send(sender=None, payment_method=payment_method, amount=deposit_amount, savings_item=saving_item_id, type="deposit")
+                # send SIGNAL to create transaction____________________________
+                after_deposit.send(
+                    sender=None,
+                    user=user,
+                    amount=deposit_amount,
+                    type="Savings Deposit",
+                    transaction_id="",
+                    payment_ref="",
+                    status="pending",
+                    savings_item=specific_save_item,
+                    )
+                
+                deposit_successful=False
+                # ______________SIMULATING PAYMENT INTEGRATION__________________
+                deposit_successful=True
+                # PAYMENT COMPLETED
+                if deposit_successful:
+                    update_savings_payment_status.send(
+                        sender=None,
+                        user=user,
+                        savings_item=specific_save_item,
+                        status="completed",
+                        type="Savings Deposit"
+                    )
+                else:
+                    update_savings_payment_status.send(
+                        sender=None,
+                        user=user,
+                        savings_item=specific_save_item,
+                        status="failed",
+                        type="Savings Deposit"
+                    )
+                
                 response_dict=dict(message="Deposit successful")
                 return JsonResponse(response_dict, status=status.HTTP_202_ACCEPTED)
             else:
@@ -146,38 +176,38 @@ class CreateSavingsView(APIView):
             return JsonResponse(response_dict, status=status.HTTP_400_BAD_REQUEST)
             
             
-class ChangeSavingsPeriodView(APIView):
-    """
-    API endpoint for changing the savings period od savings item
-    """
-    authentication_classes = [SessionAuthentication, TokenAuthentication]
-    permission_classes = [IsAuthenticated]
-    def post(self, request, saving_item_id):
-        new_savings_period=request.data.get("new_savings_period")
-        # if savings period provided
-        if new_savings_period:
-            user=request.user 
-            specific_savings_item=get_object_or_404(SavingsItem, id=saving_item_id) 
-            # verify if savings item belongs to the current user
-            if specific_savings_item.savings.user==user:
-                previous_end_date=specific_savings_item.due_date
-                specific_savings_item.saving_period=new_savings_period
-                specific_savings_item.save()
+# class ChangeSavingsPeriodView(APIView):
+#     """
+#     API endpoint for changing the savings period od savings item
+#     """
+#     authentication_classes = [SessionAuthentication, TokenAuthentication]
+#     permission_classes = [IsAuthenticated]
+#     def post(self, request, saving_item_id):
+#         new_savings_period=request.data.get("new_savings_period")
+#         # if savings period provided
+#         if new_savings_period:
+#             user=request.user 
+#             specific_savings_item=get_object_or_404(SavingsItem, id=saving_item_id) 
+#             # verify if savings item belongs to the current user
+#             if specific_savings_item.savings.user==user:
+#                 previous_end_date=specific_savings_item.due_date
+#                 specific_savings_item.saving_period=new_savings_period
+#                 specific_savings_item.save()
                 
-                response_dict=dict(message="Successfully updated savings period")
-                # returning the changes as response
-                response_dict["item"]=dict(name=specific_savings_item.item.name, price=specific_savings_item.item.price)
-                response_dict["previous_end_date"]=previous_end_date
-                response_dict["new_end_date"]=specific_savings_item.due_date   
-                return JsonResponse(response_dict, status=status.HTTP_200_OK)
-            # handle response if savings item does not belong to user
-            else:
-                response_dict=dict(message="The resource could not be found")
-                return JsonResponse(response_dict, status=status.HTTP_404_NOT_FOUND)
-        #if savings period not provided   
-        else:
-            response_dict=dict(message="Please provide the necessary data i.e new_savings_period ")
-            return JsonResponse(response_dict, status=status.HTTP_400_BAD_REQUEST)
+#                 response_dict=dict(message="Successfully updated savings period")
+#                 # returning the changes as response
+#                 response_dict["item"]=dict(name=specific_savings_item.item.name, price=specific_savings_item.item.price)
+#                 response_dict["previous_end_date"]=previous_end_date
+#                 response_dict["new_end_date"]=specific_savings_item.due_date   
+#                 return JsonResponse(response_dict, status=status.HTTP_200_OK)
+#             # handle response if savings item does not belong to user
+#             else:
+#                 response_dict=dict(message="The resource could not be found")
+#                 return JsonResponse(response_dict, status=status.HTTP_404_NOT_FOUND)
+#         #if savings period not provided   
+#         else:
+#             response_dict=dict(message="Please provide the necessary data i.e new_savings_period ")
+#             return JsonResponse(response_dict, status=status.HTTP_400_BAD_REQUEST)
 
 class SavingsTransactionsView(APIView):
     """
@@ -207,180 +237,344 @@ class WithdrawSavingsToSupplier(APIView):
     permission_classes = [IsAuthenticated]
     
     def post(self, request, saving_item_id):
+        
+        user=request.user
+        condition1={'savings':user.savings_account}
+        condition2={'id':saving_item_id}
+        #filtering the savings item belonging to user's savings account and by id 
+        specific_savings_item=SavingsItem.objects.filter(**condition1, **condition2).first()
+        # incase user wants to access another user's savings item
+        if not specific_savings_item:
+            response_dict=dict(error="Resource not found")
+            return Response(response_dict, status=status.HTTP_404_NOT_FOUND)
+        
+        
+        
+        
+        
         # getting specific savings item to withdraw from
         specific_savings_item=get_object_or_404(SavingsItem, id=saving_item_id)
-        
         supplier_till=request.data.get("supplier_till")
         amount=request.data.get("withdraw_amount")  # optional
-        # handle if supplier till provided
-        if supplier_till:
-            # prevent user from using app money, only used amount saved
-            if amount:
-                if Decimal(amount)>specific_savings_item.amount_saved:
-                    response_dict=dict(message="Not enough funds in account")
-                    return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)
-            
-            payment_successful=False 
-            
-            # handle payment through gateway
-            
-            
-            # end of success payment
-            payment_successful=True 
-            # to enable user to withdraw ONLY after the TARGET amount is reached, payment successful
-            if specific_savings_item.is_target_amount_reached and payment_successful and specific_savings_item.in_progress:
-                specific_savings_item.in_progress=False
-                specific_savings_item.save()
-                
-                if amount:
-                    amount_paid_to_till=Decimal(amount)
-                # if amount not provided, use target_amount for the savings item 
-                if not amount:
-                    amount_paid_to_till=specific_savings_item.target_amount
-                    
-                specific_savings_item.amount_saved-=amount_paid_to_till
-                specific_savings_item.save()
-                
-                response_dict=dict(message="Withdrawal successful to supplier")
-                return JsonResponse(response_dict, status=status.HTTP_200_OK)
-            # if target amount not REACHED 
-            else:
-                if specific_savings_item.in_progress:
-                    response_dict=dict(message="Target amount not reached")
-                    return JsonResponse(response_dict, status=status.HTTP_400_BAD_REQUEST)
-                 
-                # handle if savings is done (i.e in_progress=False) to withdraw extra funds 
-                # It was toggled to in_progress=False when the savings target amount reached AND PAID to supplier
-                else:
-                    # if extra funds to be withdrawn are available in account
-                    if amount:
-                        if Decimal(amount)>specific_savings_item.amount_saved:
-                            response_dict=dict(message="Not enough funds in account")
-                            return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)      
-                        else:
-                            payment_successful=False
-                            # handle payment of extra funds to gateway
-                            
-                            payment_successful=True
-                            
-                                
-                            if payment_successful:
-                                specific_savings_item.amount_saved-=amount
-                                specific_savings_item.save()
-                                
-                                response_dict=dict(message="Withdrawal of extra funds successful")
-                                return Response(response_dict, status=status.HTTP_200_OK)                                
-        
         # handle if supplier till not provided
+        if not supplier_till:
+            response_dict=dict(message="Supplier till not provided")
+            return JsonResponse(response_dict, status=status.HTTP_400_BAD_REQUEST)
+        # check if target achieved
+        if not specific_savings_item.achieved:
+            response_dict=dict(message="Target amount not reached")
+            return JsonResponse(response_dict, status=status.HTTP_400_BAD_REQUEST)
+        
+        
+        
+        
+        # handle if supplier till provided
+        
+        if amount:
+            # prevent user from using app money, only used amount saved
+            if Decimal(amount)>specific_savings_item.amount_saved:
+                response_dict=dict(message="Not enough funds in account")
+                return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)
+        # print("Done to here!!")   
+            
+        if amount:
+            amount_paid_to_till=Decimal(amount)
+        # if amount not provided, use target_amount for the savings item 
+        if not amount:
+            amount_paid_to_till=specific_savings_item.target_amount
+            
+            
+            
+            
+        # ______________ TRYING TO WITHDRAW EXTRA FUNDS ______________________________________________________________________
+        if specific_savings_item.achieved & (specific_savings_item.amount_saved<specific_savings_item.target_amount):
+            if amount:
+                extra_funds_to_withdraw=Decimal(amount)
+            # if amount not provided, use target_amount for the savings item 
+            if not amount:
+                extra_funds_to_withdraw=specific_savings_item.amount_saved
+            # extra_funds_to_withdraw=specific_savings_item.amount_saved
+            
+            after_deposit.send(
+                    sender=None,
+                    user=user,
+                    amount=extra_funds_to_withdraw,
+                    type="Supplier Withdrawal",
+                    transaction_id="",
+                    payment_ref="",
+                    status="pending",
+                    savings_item=specific_savings_item,
+                    receiving_till=supplier_till
+                    )
+            withdraw_successful=False
+            # ______________SIMULATING PAYMENT INTEGRATION__________________
+            withdraw_successful=True
+            # PAYMENT COMPLETED
+            
+            
+            specific_savings_item.in_progress=False
+            specific_savings_item.achieved=True
+            specific_savings_item.save()
+            
+            if withdraw_successful:
+                specific_savings_item.amount_saved-=extra_funds_to_withdraw
+                specific_savings_item.save()
+                
+                update_savings_payment_status.send(
+                        sender=None,
+                        user=user,
+                        savings_item=specific_savings_item,
+                        status="completed",
+                        type="Supplier Withdrawal",
+                    )
+                
+                response_dict=dict(message=f"Withdrawal successful to supplier => Amount :{extra_funds_to_withdraw}")
+                return JsonResponse(response_dict, status=status.HTTP_200_OK)
+            else:
+                update_savings_payment_status.send(
+                        sender=None,
+                        user=user,
+                        savings_item=specific_savings_item,
+                        status="failed",
+                        type="Supplier Withdrawal",
+                    )
+                response_dict=dict(message="Withdrawal failed")
+                return JsonResponse(response_dict, status=status.HTTP_400_BAD_REQUEST)
+            
+            # response_dict=dict(message="Withdrawing extra funds")
+            # return Response(response_dict, status=status.HTTP_200_OK)
+            
+        
+        after_deposit.send(
+                    sender=None,
+                    user=user,
+                    amount=amount_paid_to_till,
+                    type="Supplier Withdrawal",
+                    transaction_id="",
+                    payment_ref="",
+                    status="pending",
+                    savings_item=specific_savings_item,
+                    receiving_till=supplier_till
+                    )
+                    
+        withdraw_successful=False
+        # ______________SIMULATING PAYMENT INTEGRATION__________________
+        withdraw_successful=True
+        # PAYMENT COMPLETED
+        
+        specific_savings_item.in_progress=False
+        specific_savings_item.achieved=True
+        specific_savings_item.save()
+        
+        if withdraw_successful:
+            specific_savings_item.amount_saved-=amount_paid_to_till
+            specific_savings_item.save()
+            
+            update_savings_payment_status.send(
+                        sender=None,
+                        user=user,
+                        savings_item=specific_savings_item,
+                        status="completed",
+                        type="Supplier Withdrawal",
+                    )
+            
+            response_dict=dict(message="Withdrawal successful to supplier")
+            return JsonResponse(response_dict, status=status.HTTP_200_OK)
         else:
-            response_dict=dict(error="supplier till not provided")
+            
+            update_savings_payment_status.send(
+                        sender=None,
+                        user=user,
+                        savings_item=specific_savings_item,
+                        status="failed",
+                        type="Supplier Withdrawal",
+                    )
+            
+            response_dict=dict(message="Withdrawal failed")
             return JsonResponse(response_dict, status=status.HTTP_400_BAD_REQUEST)
             
-        
+                 
+        # handle if savings is done (i.e in_progress=False) to withdraw extra funds 
+        # It was toggled to in_progress=False when the savings target amount reached AND PAID to supplier
+        # else:
+        #     # if extra funds to be withdrawn are available in account
+        #     if amount:
+        #         if Decimal(amount)>specific_savings_item.amount_saved:
+        #             response_dict=dict(message="Not enough funds in account")
+        #             return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)      
+        #         else:
+        #             payment_successful=False
+        #             # handle payment of extra funds to gateway
+                    
+        #             payment_successful=True
+                    
+                        
+        #             if payment_successful:
+        #                 specific_savings_item.amount_saved-=amount
+        #                 specific_savings_item.save()
+                        
+        #                 response_dict=dict(message="Withdrawal of extra funds successful")
+        #                 return Response(response_dict, status=status.HTTP_200_OK)                                
+
 class LoanRequestView(APIView):
-    authentication_classes = [SessionAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
 
-    def post(self, request, *args, **kwargs):
-        serializer = LoanRequestSerializer(data=request.data, context={'request': request})
+    def post(self, request):
+        amount=request.data.get("amount")
 
-        if serializer.is_valid():
-            user = request.user
-            amount_requested = Decimal(serializer.validated_data['amount'])
-            active_loan = Loan.objects.filter(user=user, is_active=True).first()
+        user=request.user
 
-            # Check loan eligibility conditions
-            eligibility_check = self.check_loan_eligibility(user, amount_requested, active_loan)
+        # loan_limit=user.customer.loan_limit
 
-            if eligibility_check['is_eligible']:
-                # Update loan_owed and loan_limit
-                user.loan_owed += amount_requested
-                user.loan_limit -= amount_requested
-                user.save()
+        if not amount:
+            response_dict=dict(error="amount not provided")
+            return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)
+        
+        eligibility_check = self.check_loan_eligibility(user, amount)
+        if eligibility_check["is_eligible"]:
 
-                # Create Loan instance
-                loan = Loan(
-                    user=user,
-                    amount=amount_requested,
-                    purpose=serializer.validated_data['purpose'],
-                    loan_duration=90,
-                    application_date=timezone.now().date(),
-                    is_approved=True,
-                    is_active=True,
-                    disbursed=True,
-                    grace_period=30,
-                    late_payment_penalty_rate=5,
-                )
+            loan=user.loans.create(
+                amount=amount
+            )
+            loan.save()
 
+            user.customer.loan_owed+=amount
+            user.customer.save()
+
+            # _______________________SIGNAL______________
+            loan_disbursed.send(
+                                sender=None,
+                                user=user,
+                                amount=amount, 
+                                transaction_id="",
+                                payment_ref="",
+                                loan=loan
+                                )
+
+            disbursement_successful=False
+
+            # SIMULATING PAYMENT INTEGRATION ______________________
+
+            disbursement_successful=True
+
+            # ____________________PAYMENT DONE__________________
+            if disbursement_successful:
+                loan.is_disbursed=True
+                loan.is_approved=True
+                loan.approval_date=timezone.now()
                 loan.save()
+                loan.calculated_remaining_days
 
-                return Response({"message": "Loan request successful.", 'amount': amount_requested}, status=status.HTTP_201_CREATED)
+                update_transaction_status.send(sender=None,type="Loan Disbursement",loan=loan, status="completed")
+            
             else:
-                return Response({"error": eligibility_check['error']}, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                update_transaction_status.send(sender=None,loan=loan, type="Loan Disbursement", status="failed")
+                
 
-    def check_loan_eligibility(self, user, amount_requested, active_loan):
-        # Business logic for checking loan eligibility
-        condition_1 = user.loan_limit > 0
-        condition_2 = user.loan_owed <= 8000
-        condition_3 = amount_requested <= 8000 or (active_loan and user.loan_owed <= 8000)        
-        if not condition_1:
-            return {'is_eligible': False, 'error': "Loan limit exhausted."}
-        elif not condition_2:
-            return {'is_eligible': False, 'error': "Loan owed exceeds limit."}
-        elif not condition_3:
-            return {'is_eligible': False, 'error': "Additional loan exceeds limit."}        
+            
+
+            response_dict=dict(
+                success=True,
+                message="Loan request successful",
+                amount=amount
+                )
+            return Response(response_dict, status=status.HTTP_201_CREATED)
+        
         else:
-            return {'is_eligible': True, 'error': None}
+            response_dict=dict(
+                success=False,
+                error="Not eligible for loan",
+                amount_borrowable=user.customer.amount_borrowable
+                )
+            return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)
+
+        
+    def check_loan_eligibility(self, user, amount_requested):    
+        if user.customer.loan_owed + amount_requested> user.customer.loan_limit:
+            return {'is_eligible': False, 'error': "Loan limit exceeded due to existing debt."}  
+   
+        # if amount_requested > user.customer.amount_borrowable:
+        #     return {'is_eligible': False, 'error': "Requested loan exceeds borrowable limit."}    
+    
+        return {'is_eligible': True, 'error': None}
+    
+
 
 class LoanRepaymentView(APIView):
     authentication_classes = [SessionAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
+        
+    def post(self, request):
+        user = request.user
+        amount_paid = request.data.get("amount_paid")
+        
+        if amount_paid > 0:
+            all_loans = user.loans.filter(is_active=True)
+            if all_loans.exists():
+                total_remaining_loan_amount = user.customer.loan_owed
 
-    def post(self, request, *args, **kwargs):
-        serializer = LoanRepaymentSerializer(data=request.data, context={'request': request})
+                if amount_paid > total_remaining_loan_amount:
+                    raise ValidationError(f"Amount paid ({amount_paid}) exceeds the total remaining loan amount ({total_remaining_loan_amount})")
+                
+                user.customer.loan_owed -= amount_paid
+                user.customer.save()
+                
+                amount_to_redistribute = amount_paid
+                repayment_successful = False
 
-        if serializer.is_valid():
-            user = request.user
-            loan = user.loans.filter(is_active=True, disbursed=True).first()
+                for loan in all_loans:
+                    if amount_to_redistribute <= 0:
+                        break
+                    
+                    repayment_amount = min(amount_to_redistribute, loan.remaining_amount)
+                    if repayment_amount > loan.remaining_amount:
+                        remaining_amount = loan.remaining_amount
+                        raise ValidationError(f"Amount paid exceeds the remaining loan amount ({remaining_amount})")
 
-            if not loan:
-                return Response({'error': 'No active loan found for the user. Kindly move to the savings page to start saving'}, status=status.HTTP_400_BAD_REQUEST)
+                    
+                    loan.repaid_amount += repayment_amount
+                    user.customer.loan_owed -= repayment_amount
+                    loan.save()
 
-            amount_paid = serializer.validated_data['amount_paid']
-            remaining_loan_amount = loan.calculate_remaining_amount()
+                    if repayment_amount != 0:
+                        after_loan_repayment.send(
+                            sender=None,
+                            user=user,
+                            amount=repayment_amount, 
+                            transaction_id="",
+                            payment_ref="",
+                            loan=loan
+                        )
+                    
+                    amount_to_redistribute -= repayment_amount
 
-            if amount_paid > remaining_loan_amount:
-                # Save the excess amount to the user's savings
-                excess_amount = amount_paid - remaining_loan_amount
+                    user.customer.update_customer_loan_owed()
 
-                # # Assuming you have a Savings model
-                # savings = user.user_savings  # Access the related name
-                # savings.amount_saved += excess_amount
-                # savings.save()
-
-                amount_paid = remaining_loan_amount
-
-            # Update loan_owed and loan_limit
-            user.loan_owed -= amount_paid
-            user.loan_limit += amount_paid
-            user.save()
-
-
-
-            # Create LoanRepayment instance
-            loan_repayment = LoanRepayment.objects.create(
-                loan=loan,
-                amount_paid=amount_paid
-            )
-
-            loan_repayment.save()
-
-            return Response({"message": "Loan repayment successful.", 'repayment_amount': amount_paid}, status=status.HTTP_201_CREATED)
+                    # SIMULATING PAYMENT INTEGRATION ______________________
+                    repayment_successful = True  # Update this based on actual payment integration
+                    
+                # ____________________PAYMENT DONE__________________
+                if repayment_successful:
+                    response_dict = dict(message="Repayment of loan successful")
+                    for loan in all_loans:
+                        update_transaction_status.send(sender=None, loan=loan, type="Loan Repayment", status="completed")
+                    return Response(response_dict, status=status.HTTP_200_OK)
+                else:
+                    response_dict = dict(
+                        success=False,
+                        message="Loan repayment failed",
+                        amount=amount_paid
+                    )
+                    for loan in all_loans:
+                        update_transaction_status.send(sender=None, loan=loan, type="Loan Repayment", status="failed")
+                    return Response(response_dict, status=status.HTTP_201_CREATED)
+            else:
+                response_dict = dict(message="No active loans found")
+                return Response(response_dict, status=status.HTTP_200_OK)
         else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)  
-
+            response_dict = dict(message="Amount not provided or invalid")
+            return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)
 
 
 class LoanTransactionView(APIView):
@@ -393,9 +587,21 @@ class LoanTransactionView(APIView):
         serializer = LoanTransactionSerializer(transactions, many=True)
         return Response(serializer.data)
 
-class UserLoanInfoView(generics.RetrieveAPIView):
+class UserLoanInfoView(generics.ListAPIView):
     serializer_class = CustomUserSerializer
     permission_classes = [IsAuthenticated]
 
-    def get_object(self):        
-        return self.request.user
+    def get_queryset(self):
+        user = self.request.user
+        loans = user.loans.all().order_by('-created_at')
+
+        for loan in loans:
+            if callable(getattr(loan, 'late_payment_update', None)):
+                loan.late_payment_update()
+
+            loan.remaining_days = loan.calculated_remaining_days
+
+        return loans     
+        
+            
+        
