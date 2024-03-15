@@ -6,11 +6,13 @@ from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
-from newmamapesa.models import Loan, Savings, SavingsItem, Item, Payment
-from .serializers import LoanRequestSerializer
+from newmamapesa.models import Loan, Savings, SavingsItem, Item
+
 from decimal import Decimal
-from .signals import after_deposit, after_repay_loan, loan_disbursed, update_savings_payment_status
+from .signals import after_deposit, loan_disbursed,update_transaction_status,after_loan_repayment, update_savings_payment_status
 from .serializer_helpers import get_all_transactions
+from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 
 class SavingsAccountView(APIView):
     """
@@ -414,124 +416,193 @@ class WithdrawSavingsToSupplier(APIView):
                         
         #                 response_dict=dict(message="Withdrawal of extra funds successful")
         #                 return Response(response_dict, status=status.HTTP_200_OK)                                
-        
-        
-class TransactionView(APIView):
-    authentication_classes = [SessionAuthentication, TokenAuthentication]
-    permission_classes = [IsAuthenticated]
-    
-    def get(self, request):
-        # transactions=Payment.objects.filter(type__ne="Loan Service Charge")
-        transactions=Payment.objects.exclude(type="Loan Service Charge")
-        serializer=PaymentSerializer(transactions, many=True)
 
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    
-        
-            
-        
 class LoanRequestView(APIView):
     permission_classes = [IsAuthenticated]
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
 
     def post(self, request):
-        serializer = LoanRequestSerializer(data=request.data, context={'request': request})
+        amount=request.data.get("amount")
 
-        if serializer.is_valid():
-            user = request.user
-            amount_requested = Decimal(serializer.validated_data['amount'])
+        user=request.user
+
+        # loan_limit=user.customer.loan_limit
+
+        if not amount:
+            response_dict=dict(error="amount not provided")
+            return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)
+        
+        eligibility_check = self.check_loan_eligibility(user, amount)
+        if eligibility_check["is_eligible"]:
+
+            loan=user.loans.create(
+                amount=amount
+            )
+            loan.save()
+
+            user.customer.loan_owed+=amount
+            user.customer.save()
+
+            # _______________________SIGNAL______________
+            loan_disbursed.send(
+                                sender=None,
+                                user=user,
+                                amount=amount, 
+                                transaction_id="",
+                                payment_ref="",
+                                loan=loan
+                                )
+
+            disbursement_successful=False
+
+            # SIMULATING PAYMENT INTEGRATION ______________________
+
+            disbursement_successful=True
+
+            # ____________________PAYMENT DONE__________________
+            if disbursement_successful:
+                loan.is_disbursed=True
+                loan.is_approved=True
+                loan.approval_date=timezone.now()
+                loan.save()
+                loan.calculated_remaining_days
+
+                update_transaction_status.send(sender=None,type="Loan Disbursement",loan=loan, status="completed")
             
-            if amount_requested>0:
-            
-                eligibility_check = self.check_loan_eligibility(user, amount_requested)
-
-                if eligibility_check['is_eligible']:
-                    
-                    loan = Loan(
-                        user=user,
-                        amount=amount_requested,                    
-                    )
-
-                    loan.save()
-                    # AMOUNT TO GO TO PAYMENT GATEWAY
-                    amount_to_disburse=loan.amount_disbursed
-                    print(amount_to_disburse)
-                    # After successful payment
-                    loan_disbursed.send(sender=None, amount=amount_to_disburse, user=user, loan=loan)
-
-                    return Response({"message": "Loan request successful.", 'amount': amount_requested}, status=status.HTTP_201_CREATED)
-                else:
-                    return Response({"error": eligibility_check['error']}, status=status.HTTP_400_BAD_REQUEST)
-                
             else:
-                response_dict=dict(message="Amount not provided")
-                return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                update_transaction_status.send(sender=None,loan=loan, type="Loan Disbursement", status="failed")
+                
 
-    def check_loan_eligibility(self, user, amount_requested):
-        # Business logic for checking loan eligibility
-        condition_1 = user.is_eligible
-        # condition_2 = user.loan_owed <= 8000
-        condition_3 = amount_requested <= user.amount_borrowable      
-        if not condition_1:
-            return {'is_eligible': False, 'error': "Loan limit exhausted."}
-        # elif not condition_2:
-        #     return {'is_eligible': False, 'error': "Loan owed exceeds limit."}
-        elif not condition_3:
-            return {'is_eligible': False, 'error': "requested loan exceeds loan limit."}        
+            
+
+            response_dict=dict(
+                success=True,
+                message="Loan request successful",
+                amount=amount
+                )
+            return Response(response_dict, status=status.HTTP_201_CREATED)
+        
         else:
-            return {'is_eligible': True, 'error': None}
+            response_dict=dict(
+                success=False,
+                error="Not eligible for loan",
+                amount_borrowable=user.customer.amount_borrowable
+                )
+            return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)
+
+        
+    def check_loan_eligibility(self, user, amount_requested):    
+        if user.customer.loan_owed + amount_requested> user.customer.loan_limit:
+            return {'is_eligible': False, 'error': "Loan limit exceeded due to existing debt."}  
+   
+        # if amount_requested > user.customer.amount_borrowable:
+        #     return {'is_eligible': False, 'error': "Requested loan exceeds borrowable limit."}    
+    
+        return {'is_eligible': True, 'error': None}
+    
+
 
 class LoanRepaymentView(APIView):
     authentication_classes = [SessionAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
         
     def post(self, request):
-        user=request.user
-        amount_paid =request.data.get("amount_paid")
+        user = request.user
+        amount_paid = request.data.get("amount_paid")
         
-        if amount_paid>0:
-            all_loans=user.loans.filter(is_active=True)
+        if amount_paid > 0:
+            all_loans = user.loans.filter(is_active=True)
             if all_loans.exists():
-                user.loan_owed-=amount_paid
-                user.save()
+                total_remaining_loan_amount = user.customer.loan_owed
+
+                if amount_paid > total_remaining_loan_amount:
+                    raise ValidationError(f"Amount paid ({amount_paid}) exceeds the total remaining loan amount ({total_remaining_loan_amount})")
                 
-                amount_to_redistribute=amount_paid
+                user.customer.loan_owed -= amount_paid
+                user.customer.save()
+                
+                amount_to_redistribute = amount_paid
+                repayment_successful = False
+
                 for loan in all_loans:
-                    if amount_to_redistribute<=0:
+                    if amount_to_redistribute <= 0:
                         break
                     
-                    repayment_amount=min(amount_to_redistribute, loan.remaining_amount)
+                    repayment_amount = min(amount_to_redistribute, loan.remaining_amount)
+                    if repayment_amount > loan.remaining_amount:
+                        remaining_amount = loan.remaining_amount
+                        raise ValidationError(f"Amount paid exceeds the remaining loan amount ({remaining_amount})")
+
                     
-                    loan.repaid_amount+=repayment_amount
+                    loan.repaid_amount += repayment_amount
+                    user.customer.loan_owed -= repayment_amount
                     loan.save()
-                    if repayment_amount !=0:
-                        after_repay_loan.send(sender=None, user=user, loan=loan, amount=repayment_amount)
+
+                    if repayment_amount != 0:
+                        after_loan_repayment.send(
+                            sender=None,
+                            user=user,
+                            amount=repayment_amount, 
+                            transaction_id="",
+                            payment_ref="",
+                            loan=loan
+                        )
                     
-                    amount_to_redistribute-=repayment_amount
-                
-                response_dict=dict(message="repayment of loan successful")
-                return Response(response_dict, status=status.HTTP_200_OK)
+                    amount_to_redistribute -= repayment_amount
+
+                    user.customer.update_customer_loan_owed()
+
+                    # SIMULATING PAYMENT INTEGRATION ______________________
+                    repayment_successful = True  # Update this based on actual payment integration
+                    
+                # ____________________PAYMENT DONE__________________
+                if repayment_successful:
+                    response_dict = dict(message="Repayment of loan successful")
+                    for loan in all_loans:
+                        update_transaction_status.send(sender=None, loan=loan, type="Loan Repayment", status="completed")
+                    return Response(response_dict, status=status.HTTP_200_OK)
+                else:
+                    response_dict = dict(
+                        success=False,
+                        message="Loan repayment failed",
+                        amount=amount_paid
+                    )
+                    for loan in all_loans:
+                        update_transaction_status.send(sender=None, loan=loan, type="Loan Repayment", status="failed")
+                    return Response(response_dict, status=status.HTTP_201_CREATED)
             else:
-                response_dict=dict(message="No active loans found")
+                response_dict = dict(message="No active loans found")
                 return Response(response_dict, status=status.HTTP_200_OK)
         else:
-            response_dict=dict(message="amount not provided")
-            return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)  
-        
-# class LoanTransactionView(APIView):
-#     authentication_classes = [SessionAuthentication, TokenAuthentication]
-#     permission_classes = [IsAuthenticated]
+            response_dict = dict(message="Amount not provided or invalid")
+            return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)
 
-#     def get(self, request, *args, **kwargs):
-#         user = request.user
-#         transactions = LoanTransaction.objects.filter(user=user)
-#         serializer = LoanTransactionSerializer(transactions, many=True)
-#         return Response(serializer.data)
 
-class UserLoanInfoView(generics.RetrieveAPIView):
+class LoanTransactionView(APIView):
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        transactions = LoanTransaction.objects.filter(user=user)
+        serializer = LoanTransactionSerializer(transactions, many=True)
+        return Response(serializer.data)
+
+class UserLoanInfoView(generics.ListAPIView):
     serializer_class = CustomUserSerializer
     permission_classes = [IsAuthenticated]
 
-    def get_object(self):        
-        return self.request.user
+    def get_queryset(self):
+        user = self.request.user
+        loans = user.loans.all().order_by('-created_at')
+
+        for loan in loans:
+            if callable(getattr(loan, 'late_payment_update', None)):
+                loan.late_payment_update()
+
+            loan.remaining_days = loan.calculated_remaining_days
+
+        return loans     
+        
+            
+        

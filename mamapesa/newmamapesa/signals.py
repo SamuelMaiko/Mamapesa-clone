@@ -17,11 +17,11 @@ def create_savings_account_on_user_creation(sender, instance, created, **kwargs)
         instance.target_amount=instance.item.price
         instance.save() 
 
-@receiver(post_save, sender=Loan)
-def create_savings_account_on_user_creation(sender, instance, created, **kwargs):
-    if created:
-        instance.user.loan_owed+=instance.amount
-        instance.user.save() 
+# @receiver(post_save, sender=Loan)
+# def create_savings_account_on_user_creation(sender, instance, created, **kwargs):
+#     if created:
+#         instance.user.loan_owed+=instance.amount
+#         instance.user.save() 
         
                
         
