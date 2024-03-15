@@ -1,6 +1,6 @@
 from rest_framework import serializers
 # from newmamapesa.models import Loan,Savings, SavingsItem,SavingsTransaction, Item, LoanTransaction, CustomUser
-from newmamapesa.models import Loan,Savings, SavingsItem, Item, CustomUser
+from newmamapesa.models import Loan,Savings, SavingsItem, Item, CustomUser, Payment
 
 class SavingsAccountSerializer(serializers.ModelSerializer):
     class Meta:
@@ -16,6 +16,21 @@ class SavingsItemSerializer(serializers.ModelSerializer):
         model=SavingsItem
         fields=["id","item","amount_saved","target_amount","start_date","remaining_amount","installment","days_payment","remaining_days", "due_date","saving_period","is_achieved","in_progress"]
 
+class PaymentSerializer(serializers.ModelSerializer):
+    payment_name=serializers.SerializerMethodField()
+    is_addition=serializers.SerializerMethodField()
+    class Meta:
+        model=Payment
+        fields=['amount', 'type', 'payment_name','status', 'payment_date', 'is_deduction']
+
+    def get_payment_name(self, obj):
+        return obj.payment_method.name
+    
+    def get_is_addition(self, obj):
+        if obj.type=="Loan Disbursement" or obj.type=="Savings Deposit":
+            return True
+        return False
+        
 # class SavingsTransactionSerializer(serializers.ModelSerializer):
 #     class Meta:
 #         model=SavingsTransaction
