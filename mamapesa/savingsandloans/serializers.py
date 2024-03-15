@@ -21,7 +21,7 @@ class PaymentSerializer(serializers.ModelSerializer):
     is_addition=serializers.SerializerMethodField()
     class Meta:
         model=Payment
-        fields=['amount', 'type', 'payment_name','status', 'payment_date', 'is_deduction']
+        fields=['amount', 'type', 'payment_name','status', 'payment_date', 'is_addition']
 
     def get_payment_name(self, obj):
         return obj.payment_method.name
