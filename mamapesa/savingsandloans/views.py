@@ -6,8 +6,7 @@ from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
-from newmamapesa.models import Loan, Savings, SavingsItem, Item
-
+from newmamapesa.models import Loan, Savings, SavingsItem, Item,Payment
 from decimal import Decimal
 from .signals import after_deposit, loan_disbursed,update_transaction_status,after_loan_repayment, update_savings_payment_status
 from .serializer_helpers import get_all_transactions
@@ -578,15 +577,6 @@ class LoanRepaymentView(APIView):
             return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)
 
 
-class LoanTransactionView(APIView):
-    authentication_classes = [SessionAuthentication, TokenAuthentication]
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, *args, **kwargs):
-        user = request.user
-        transactions = LoanTransaction.objects.filter(user=user)
-        serializer = LoanTransactionSerializer(transactions, many=True)
-        return Response(serializer.data)
 
 class UserLoanInfoView(generics.ListAPIView):
     serializer_class = CustomUserSerializer
@@ -602,7 +592,18 @@ class UserLoanInfoView(generics.ListAPIView):
 
             loan.remaining_days = loan.calculated_remaining_days
 
-        return loans     
+        return loans  
+    
+class TransactionView(APIView):
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # transactions=Payment.objects.filter(type__ne="Loan Service Charge")
+        transactions=Payment.objects.exclude(type="Loan Service Charge")
+        serializer=PaymentSerializer(transactions, many=True)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
         
             
         
