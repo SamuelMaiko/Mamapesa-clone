@@ -1,10 +1,30 @@
 from django.dispatch import receiver, Signal
 # from newmamapesa.models import SavingsItem, SavingsTransaction, LoanTransaction
-from newmamapesa.models import SavingsItem, Payment
+from .models import SavingsItem, Payment, Savings
+from accounts.models import CustomUser
+from savingsandloans.models import Customer
 from django.db.models.signals import post_save
 from decimal import Decimal
 from django.db.models import Q
+from django.conf import settings
 
+
+
+
+CustomUser=settings.AUTH_USER_MODEL
+
+@receiver(post_save, sender=CustomUser)
+def create_savings_account_on_user_creation(sender, instance, created, **kwargs):
+    if created:
+        Savings.objects.create(user=instance)
+        Customer.objects.create(user=instance)
+
+@receiver(post_save, sender=SavingsItem)
+def create_savings_account_on_user_creation(sender, instance, created, **kwargs):
+    if created:
+        instance.target_amount=instance.item.price
+        instance.save() 
+        
 @receiver(post_save, sender=SavingsItem)
 def update_saving_account_total_amount(sender, instance, created, **kwargs):
     all_savings_items=instance.savings.savings_items.all()
