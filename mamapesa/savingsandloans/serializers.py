@@ -23,7 +23,7 @@ class SavingsItemSerializer(serializers.ModelSerializer):
 class LoanRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = Loan
-        fields = ['amount', 'purpose']
+        fields = ['amount']
 # class LoanTransactionSerializer(serializers.ModelSerializer):
 #     class Meta:
 #         model = LoanTransaction
@@ -35,6 +35,10 @@ class LoanRequestSerializer(serializers.ModelSerializer):
 #         print(response.data) 
 #         return response
 class CustomUserSerializer(serializers.ModelSerializer):
+    remaining_days = serializers.SerializerMethodField()
     class Meta:
-        model = CustomUser
-        fields = ['loan_owed', 'loan_limit']
+        model = Loan
+        fields = ['id', 'amount', 'repaid_amount', 'default_days', 'remaining_days', 'application_date', 'due_date']
+
+    def get_remaining_days(self, obj):
+        return obj.calculated_remaining_days

@@ -55,27 +55,73 @@ def update_status(sender, **kwargs):
     specific_payment.save()
     
     
-loan_disbursed=Signal()
-# @receiver(loan_disbursed, sender=None)
-# def create_loan_transaction(sender, **kwargs):
-#     LoanTransaction.objects.create(
-#         user=kwargs["user"],
-#         amount=kwargs["amount"],
-#         description=f"Loan disbursed for Kshs. {kwargs['amount']}",
-#         type='loan_disbursement',
-#         loan=kwargs["loan"]
-#     )
-#     loan=kwargs["loan"]
-#     loan.is_disbursed=True
-#     loan.save()
+loan_disbursed = Signal()
+
+@receiver(loan_disbursed, sender=None)
+def create_loan_transaction(sender, **kwargs):
+    try:
+        Payment.objects.create(
+            customer=kwargs["user"].customer,
+            amount=kwargs["amount"],
+            type='Loan Disbursement',
+            transaction_id=kwargs["transaction_id"],
+            payment_method_id=1,
+            payment_ref=kwargs["payment_ref"],
+            loan=kwargs["loan"]
+        )
+
+    except KeyError as e:
+        print(f"Error in create_loan_transaction signal: Missing key {e}")
+
+    except Exception as e:
+        print(f"Error in create_loan_transaction signal: {e}")
 
 
-after_repay_loan=Signal()
-# @receiver(after_repay_loan, sender=None)
-# def create_transaction_after_repay(sender, **kwargs):
-#     user=kwargs["user"]
-#     loan=kwargs["loan"]
-#     amount=kwargs["amount"]
-    
-#     new_loan_transaction=LoanTransaction(user=user, loan=loan, amount=amount, type="loan_repayment")
-#     new_loan_transaction.save()
+
+after_loan_repayment = Signal()
+
+@receiver(after_loan_repayment, sender=None)
+def create_loan_repayment(sender, **kwargs):
+    try:
+        Payment.objects.create(
+            customer=kwargs["user"].customer,
+            amount=kwargs["amount"],
+            type='Loan Repayment',
+            transaction_id=kwargs["transaction_id"],
+            payment_method_id=1,
+            payment_ref=kwargs["payment_ref"],
+            loan=kwargs["loan"]
+        )
+        
+        loan = kwargs["loan"]
+        loan.is_disbursed = True
+        loan.save()
+
+    except KeyError as e:
+        print(f"Error in create_loan_repayment signal: Missing key {e}")
+
+    except Exception as e:
+        print(f"Error in create_loan_repayment signal: {e}")
+
+update_transaction_status = Signal()
+
+@receiver(update_transaction_status, sender=None)
+def update_transaction(sender, **kwargs):
+    try:
+        status = kwargs["status"]
+        loan = kwargs["loan"]
+        type = kwargs["type"]
+
+        payment = Payment.objects.filter(Q(loan=loan) & Q(type=type)).first()
+
+        if payment:
+            payment.status = status
+            payment.save()
+        else:
+            print(f"No payment record found for loan {loan} and type {type}")
+
+    except KeyError as e:
+        print(f"Error in update_transaction signal: Missing key {e}")
+
+    except Exception as e:
+        print(f"Error in update_transaction signal: {e}")
