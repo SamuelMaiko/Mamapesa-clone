@@ -14,6 +14,6 @@ urlpatterns=[
     # path("savings-transactions/", views.SavingsTransactionsView.as_view(), name='savings-transaction-list'),
     path('request-loan/', views.LoanRequestView.as_view(), name='loans'),
     path('repayments/', views.LoanRepaymentView.as_view(), name='repayments'),
-    # path('transactions/', views.LoanTransactionView.as_view(), name='transaction-list'), 
+    path('transactions/', views.TransactionView.as_view(), name='transaction-list'), 
     path('user-loan-info/', views.UserLoanInfoView.as_view(), name='user-loan-info'),
 ]

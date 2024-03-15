@@ -1,13 +1,12 @@
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
-from .serializers import SavingsAccountSerializer, SavingsItemSerializer,LoanRequestSerializer, CustomUserSerializer
+from .serializers import SavingsAccountSerializer, SavingsItemSerializer,LoanRequestSerializer, CustomUserSerializer, PaymentSerializer
 from rest_framework import status, generics
 from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
-from newmamapesa.models import Loan, Savings, SavingsItem, Item
-
+from .models import Savings, SavingsItem, Item,Payment
 from decimal import Decimal
 from .signals import after_deposit, loan_disbursed,update_transaction_status,after_loan_repayment, update_savings_payment_status
 from .serializer_helpers import get_all_transactions
@@ -209,24 +208,25 @@ class CreateSavingsView(APIView):
 #             response_dict=dict(message="Please provide the necessary data i.e new_savings_period ")
 #             return JsonResponse(response_dict, status=status.HTTP_400_BAD_REQUEST)
 
-class SavingsTransactionsView(APIView):
-    """
-    API endpoint for retrieving transactions of a user
-    """
-    authentication_classes = [SessionAuthentication, TokenAuthentication]
-    permission_classes = [IsAuthenticated]  
-    def get(self, request):
-        user=request.user
-        all_savings_items=SavingsItem.objects.filter(savings=user.savings_account)
-        # calling function to get transactions
-        all_transactions=get_all_transactions(all_savings_items)
-        # if there are transactions
-        if all_transactions:
-            serializer=SavingsTransactionSerializer(all_transactions, many=True)
-            return JsonResponse(serializer.data, safe=False, status=status.HTTP_200_OK)   
-        else:
-            response_dict=dict(message="No transactions")
-            return JsonResponse(response_dict, status=status.HTTP_400_BAD_REQUEST)   
+# class SavingsTransactionsView(APIView):
+#     """
+#     API endpoint for retrieving transactions of a user
+#     """
+#     authentication_classes = [SessionAuthentication, TokenAuthentication]
+#     permission_classes = [IsAuthenticated]
+      
+#     def get(self, request):
+#         user=request.user
+#         all_savings_items=SavingsItem.objects.filter(savings=user.savings_account)
+#         # calling function to get transactions
+#         all_transactions=get_all_transactions(all_savings_items)
+#         # if there are transactions
+#         if all_transactions:
+#             serializer=SavingsTransactionSerializer(all_transactions, many=True)
+#             return JsonResponse(serializer.data, safe=False, status=status.HTTP_200_OK)   
+#         else:
+#             response_dict=dict(message="No transactions")
+#             return JsonResponse(response_dict, status=status.HTTP_400_BAD_REQUEST)   
             
 
 class WithdrawSavingsToSupplier(APIView):
@@ -577,15 +577,6 @@ class LoanRepaymentView(APIView):
             return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)
 
 
-class LoanTransactionView(APIView):
-    authentication_classes = [SessionAuthentication, TokenAuthentication]
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, *args, **kwargs):
-        user = request.user
-        transactions = LoanTransaction.objects.filter(user=user)
-        serializer = LoanTransactionSerializer(transactions, many=True)
-        return Response(serializer.data)
 
 class UserLoanInfoView(generics.ListAPIView):
     serializer_class = CustomUserSerializer
@@ -601,7 +592,18 @@ class UserLoanInfoView(generics.ListAPIView):
 
             loan.remaining_days = loan.calculated_remaining_days
 
-        return loans     
+        return loans  
+    
+class TransactionView(APIView):
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # transactions=Payment.objects.filter(type__ne="Loan Service Charge")
+        transactions=Payment.objects.exclude(type="Loan Service Charge")
+        serializer=PaymentSerializer(transactions, many=True)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
         
             
         

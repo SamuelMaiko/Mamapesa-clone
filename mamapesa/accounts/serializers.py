@@ -1,7 +1,6 @@
 from rest_framework import serializers
-from newmamapesa.models import CustomUser
 from django.contrib.auth import authenticate
-from newmamapesa.models import CustomUser
+from .models import CustomUser
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(max_length=10, write_only=True, required=True)
@@ -18,4 +17,9 @@ class UserSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'password': {'write_only': True}
         }
+        
+class UserUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ['phone_number','username', 'email', 'first_name', 'last_name']
         
