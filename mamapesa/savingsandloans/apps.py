@@ -7,3 +7,5 @@ class SavingsandloansConfig(AppConfig):
     
     def ready(self):
         from . import signals
+        # from . import newSignals
+        

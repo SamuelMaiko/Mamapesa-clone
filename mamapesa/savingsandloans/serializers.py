@@ -48,10 +48,12 @@ class LoanRequestSerializer(serializers.ModelSerializer):
 #         print(response.data) 
 #         return response
 class CustomUserSerializer(serializers.ModelSerializer):
-    remaining_days = serializers.SerializerMethodField()
     class Meta:
         model = Loan
-        fields = ['id', 'amount', 'repaid_amount', 'default_days', 'remaining_days', 'application_date', 'due_date']
+        fields = ['id', 'amount', 'repaid_amount', 'calculated_remaining_days', 'default_days', 'application_date', 'due_date','default_rate', 'default_charges', 'total_loan', 'is_overdue']
 
-    def get_remaining_days(self, obj):
-        return obj.calculated_remaining_days
+    
+class LoanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model=Loan
+        fields=['id','amount', 'amount_disbursed', 'application_date','due_date', 'is_active','default_days','default_rate','calculated_remaining_days', 'default_charges', 'total_loan','default_days_count', 'is_overdue', 'remaining_amount']   

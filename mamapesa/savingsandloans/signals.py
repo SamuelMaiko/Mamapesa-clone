@@ -1,8 +1,7 @@
 from django.dispatch import receiver, Signal
 # from newmamapesa.models import SavingsItem, SavingsTransaction, LoanTransaction
-from .models import SavingsItem, Payment, Savings
 from accounts.models import CustomUser
-from savingsandloans.models import Customer
+from .models import Customer, Loan,SavingsItem, Payment, Savings
 from django.db.models.signals import post_save
 from decimal import Decimal
 from django.db.models import Q
@@ -145,3 +144,25 @@ def update_transaction(sender, **kwargs):
 
     except Exception as e:
         print(f"Error in update_transaction signal: {e}")
+        
+        
+        
+
+# _____ 
+@receiver(post_save, sender=Loan)
+def update_loan_owed(sender, instance, **kwargs):
+    all_loans=instance.user.loans.all()
+    total=0
+    for loan in all_loans:
+        total+=loan.remaining_amount
+    
+    instance.user.customer.loan_owed=total
+    instance.user.customer.save()
+
+# @receiver(post_save, sender=Loan)
+# # @receiver(post_delete, sender=Loan)
+# def update_customer_loan_owed(sender, instance, **kwargs):
+#     customer = instance.user.customer
+#     customer.update_customer_loan_owed()
+    
+        
