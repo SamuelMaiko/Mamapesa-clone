@@ -85,15 +85,12 @@ class DepositSavingsView(APIView):
         if specific_save_item.savings.user==user:
             deposit_amount=request.data.get("deposit_amount")
             phone_number=request.data.get("phone_number")
-            amount=request.data.get("amount")
+            # amount=request.data.get("amount")
             # payment method id
             payment_method=request.data.get("payment_method")
             # if payment_method not provided default to 1
             if not payment_method:
                 payment_method=1
-            
-            if phone_number and amount:
-                pass
                 # handle payment here
             
             if deposit_amount:
@@ -513,7 +510,7 @@ class LoanRepaymentView(APIView):
         
     def post(self, request):
         user = request.user
-        amount_paid = request.data.get("amount_paid")
+        amount_paid = request.data.get("amount")
         if not amount_paid:
             response_dict=dict(error="amount_paid not provided")
             return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)

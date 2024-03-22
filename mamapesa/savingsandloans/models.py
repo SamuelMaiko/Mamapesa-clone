@@ -65,7 +65,9 @@ class Loan(models.Model):
     approval_date = models.DateField(null=True, blank=True)
     due_date = models.DateField(null=True, blank=True)  # Add due_date field
     repaid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    balance = models.FloatField(default=0)
     is_approved = models.BooleanField(default=False)
+    payment_ref = models.CharField(max_length=25, null=True, default=None)
     is_active = models.BooleanField(default=True)
     is_disbursed = models.BooleanField(default=False)
     default_days=models.IntegerField(default=0)
