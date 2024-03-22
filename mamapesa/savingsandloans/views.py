@@ -1,12 +1,18 @@
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
-from .serializers import SavingsAccountSerializer, SavingsItemSerializer,LoanRequestSerializer, CustomUserSerializer, PaymentSerializer
+from .serializers import (SavingsAccountSerializer,
+                          SavingsItemSerializer,
+                          LoanRequestSerializer,
+                          CustomUserSerializer,
+                          PaymentSerializer,
+                          LoanSerializer
+                          )
 from rest_framework import status, generics
 from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
-from .models import Savings, SavingsItem, Item,Payment
+from .models import Savings, SavingsItem, Item,Payment, Loan
 from decimal import Decimal
 from .signals import after_deposit, loan_disbursed,update_transaction_status,after_loan_repayment, update_savings_payment_status
 # from .serializer_helpers import get_all_transactions
@@ -79,15 +85,12 @@ class DepositSavingsView(APIView):
         if specific_save_item.savings.user==user:
             deposit_amount=request.data.get("deposit_amount")
             phone_number=request.data.get("phone_number")
-            amount=request.data.get("amount")
+            # amount=request.data.get("amount")
             # payment method id
             payment_method=request.data.get("payment_method")
             # if payment_method not provided default to 1
             if not payment_method:
                 payment_method=1
-            
-            if phone_number and amount:
-                pass
                 # handle payment here
             
             if deposit_amount:
@@ -507,7 +510,10 @@ class LoanRepaymentView(APIView):
         
     def post(self, request):
         user = request.user
-        amount_paid = request.data.get("amount_paid")
+        amount_paid = request.data.get("amount")
+        if not amount_paid:
+            response_dict=dict(error="amount_paid not provided")
+            return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)
         
         if amount_paid > 0:
             all_loans = user.loans.filter(is_active=True)
@@ -549,7 +555,7 @@ class LoanRepaymentView(APIView):
                     
                     amount_to_redistribute -= repayment_amount
 
-                    user.customer.update_customer_loan_owed()
+                    # user.customer.update_customer_loan_owed()
 
                     # SIMULATING PAYMENT INTEGRATION ______________________
                     repayment_successful = True  # Update this based on actual payment integration
@@ -585,14 +591,23 @@ class UserLoanInfoView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         loans = user.loans.all().order_by('-created_at')
+        
+        # user.customer.update_customer_loan_owed()
 
-        for loan in loans:
-            if callable(getattr(loan, 'late_payment_update', None)):
-                loan.late_payment_update()
+        # for loan in loans:
+        #     if callable(getattr(loan, 'late_payment_update', None)):
+        #         loan.late_payment_update()
 
-            loan.remaining_days = loan.calculated_remaining_days
+        #     loan.remaining_days = loan.calculated_remaining_days
 
-        return loans  
+        return loans 
+class SpecificLoan(APIView):
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+    def get(self, request, id):
+        loan=Loan.objects.get(pk=id)
+        serializer=LoanSerializer(loan)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
 class TransactionView(APIView):
     authentication_classes = [SessionAuthentication, TokenAuthentication]
