@@ -15,7 +15,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Savings, SavingsItem, Item,Payment, Loan
 from decimal import Decimal
 from .signals import after_deposit, loan_disbursed,update_transaction_status,after_loan_repayment, update_savings_payment_status
-from .serializer_helpers import get_all_transactions
+# from .serializer_helpers import get_all_transactions
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
