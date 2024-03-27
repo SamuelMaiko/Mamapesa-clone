@@ -52,7 +52,9 @@ INSTALLED_APPS = [
     'savingsandloans',
     'tailwind',  
     'theme',
-    'django_browser_reload'
+    'django_browser_reload',
+    'corsheaders',
+    
     # 'mpesa_api',
     
 ]
@@ -75,6 +77,15 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django_browser_reload.middleware.BrowserReloadMiddleware',
+    "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.common.CommonMiddleware",
+]
+
+# examples
+CORS_ALLOWED_ORIGINS = [
+    "https://example.com",
+    "https://sub.example.com",
+    "http://127.0.0.1:9000",
 ]
 
 ROOT_URLCONF = 'core.urls'
