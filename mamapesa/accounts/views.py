@@ -33,6 +33,8 @@ class LoginWithToken(APIView):
     def post(self, request):
         phone_number=request.data.get('phone_number')
         password=request.data.get('password')
+        # print(phone_number)
+        # print(password)
         user=authenticate(request, phone_number=phone_number, password=password)
         # if user exists in db = correct credentials
         if user is not None:
@@ -53,7 +55,7 @@ class LoginWithToken(APIView):
         # If user returns NONE = wrong credentials
         else:
             response_dict={"error": "Invalid phone number or password"}
-            return JsonResponse(response_dict, status=status.HTTP_401_UNAUTHORIZED)
+            return JsonResponse(response_dict, status=status.HTTP_404_NOT_FOUND)
         
 @api_view(['POST'])
 def user_registration(request):

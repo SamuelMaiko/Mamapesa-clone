@@ -34,7 +34,7 @@ SECRET_KEY = 'django-insecure-0q!p3()$p35u=gsr+k=ta+smp2klfilu%m)*5w1deefit%^t^o
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -61,8 +61,8 @@ INSTALLED_APPS = [
 
 TAILWIND_APP_NAME='theme'
 
-NODEJS_BIN_PATH = '/c/Install/node'
-NPM_BIN_PATH = 'C:/Program Files/nodejs/npm.cmd'
+# NODEJS_BIN_PATH = '/c/Install/node'
+# NPM_BIN_PATH = 'C:/Program Files/nodejs/npm.cmd'
 
 INTERNAL_IPS = [
     "127.0.0.1",
@@ -88,7 +88,6 @@ CORS_ORIGIN_ALLOW_ALL=True
 #     "https://sub.example.com",
 #     "http://127.0.0.1:9000",
 # ]
-
 
 
 ROOT_URLCONF = 'core.urls'
