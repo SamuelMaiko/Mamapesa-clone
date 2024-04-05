@@ -190,59 +190,38 @@ class CreateSavingsView(APIView):
     """
     API endpoint for creating a new savings item
     """
-
     authentication_classes = [SessionAuthentication, TokenAuthentication]
-    permission_classes = [IsAuthenticated]
-
+    permission_classes = [IsAuthenticated]  
     def post(self, request):
-        received_item_name = request.data.get("item_name")
-        received_item_price = request.data.get("item_price")
-        saving_period = request.data.get("saving_period")
-        phone_number = request.data.get("phone_number")
-        initial_deposit = request.data.get("initial_deposit")
-
-        # handle payment here
+        received_item_name=request.data.get("item_name")
+        received_item_price=request.data.get("item_price")
+        saving_period=request.data.get("saving_period")
+        phone_number=request.data.get("phone_number")
+        initial_deposit=request.data.get("initial_deposit")
+      
+        # handle payment here   
         if phone_number and initial_deposit:
-             # call stk push to pay
-            # response_code, response_data = make_stk_push_request(
-            #     initial_deposit, phone_number, received_item_name
-            # )
-            
-            # if response_code == 200:
-            deposit_successful = True
-            # else:
-            #     deposit_successful = False
-        else:
-            deposit_successful = False
-            
-                
+            pass
         # start creation process if received item name and price exist
-        if deposit_successful:
+        if received_item_name and received_item_price:
             #  REASON: no Items available from supplier for now, CREATE an item and associate it with the user's savings
-            new_item = Item(name=received_item_name, price=received_item_price)
-            new_item.description = f"An item called {received_item_name}"
+            new_item=Item(name=received_item_name, price=received_item_price)
+            new_item.description=f"An item called {received_item_name}"
             new_item.save()
-            user = request.user
-            # associating item to a SavingsItem instance
-            new_savings_item = SavingsItem(item=new_item, savings=user.savings_account)
-            new_savings_item.target_amount = received_item_price
+            user=request.user
+            #associating item to a SavingsItem instance 
+            new_savings_item=SavingsItem(item=new_item, savings=user.savings_account)
+            new_savings_item.target_amount=received_item_price
             # if saving period provided use it ELSE use the database default
             if saving_period:
-                new_savings_item.saving_period = saving_period
+                new_savings_item.saving_period=saving_period
             new_savings_item.save()
-            response_dict = dict(message="Item added successfully to savings items!!")
+            response_dict=dict(message="Item added successfully to savings items!!")
             # returning created savings Item to user
-            response_dict["saving_item"] = dict(
-                name=new_savings_item.item.name,
-                start_date=new_savings_item.start_date,
-                end_date=new_savings_item.due_date,
-                duration=new_savings_item.saving_period,
-            )
+            response_dict["saving_item"]=dict(name=new_savings_item.item.name, start_date=new_savings_item.start_date, end_date=new_savings_item.due_date, duration=new_savings_item.saving_period)
             return JsonResponse(response_dict, status=status.HTTP_201_CREATED)
         else:
-            response_dict = dict(
-                message="Payment failed please pay deposit amount"
-            )
+            response_dict=dict(message="Please provide the necessary data i.e item_name, item_price")
             return JsonResponse(response_dict, status=status.HTTP_400_BAD_REQUEST)
 
 
