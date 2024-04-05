@@ -86,7 +86,7 @@ MIDDLEWARE = [
 #     "https://sub.example.com",
 #     "http://127.0.0.1:9000",
 # ]
-
+CORS_ALLOW_ALL_ORIGINS=True
 
 ROOT_URLCONF = 'core.urls'
 

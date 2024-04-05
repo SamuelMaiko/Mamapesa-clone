@@ -102,6 +102,16 @@ class LogoutView(APIView):
         response_dict=dict(message="User logged out successfully")
         return Response(response_dict, status=status.HTTP_200_OK)
 
+class UserDetailsAPIView(APIView):
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        user = request.user
+        serializer = UserSerializer(user)
+        if serializer.is_valid():
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 class ChangeUserDetailsAPIView(APIView):
     authentication_classes = [SessionAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
