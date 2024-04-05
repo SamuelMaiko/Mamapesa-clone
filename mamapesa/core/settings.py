@@ -36,6 +36,8 @@ DEBUG = True
 
 # Application definition
 
+ALLOWED_HOSTS=["maikomoringa.pythonanywhere.com", "localhost"]
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
