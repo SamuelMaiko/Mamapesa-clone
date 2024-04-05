@@ -14,7 +14,7 @@ from .managers import CustomUserManager
 class CustomUser(AbstractUser, PermissionsMixin):
     phone_number = models.CharField(max_length=10, unique=True, blank=True, null=True)
     username = models.CharField(max_length=15, unique=True, blank=True, null=True)
-    email = models.CharField(max_length=50, unique=True)
+    email = models.CharField(max_length=50, unique=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
