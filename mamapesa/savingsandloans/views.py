@@ -204,14 +204,17 @@ class CreateSavingsView(APIView):
         # handle payment here
         if phone_number and initial_deposit:
              # call stk push to pay
-            response_code, response_data = make_stk_push_request(
-                initial_deposit, phone_number, received_item_name
-            )
+            # response_code, response_data = make_stk_push_request(
+            #     initial_deposit, phone_number, received_item_name
+            # )
             
-            if response_code == 200:
-                deposit_successful = True
-            else:
-                deposit_successful = False
+            # if response_code == 200:
+            deposit_successful = True
+            # else:
+            #     deposit_successful = False
+        else:
+            deposit_successful = False
+            
                 
         # start creation process if received item name and price exist
         if deposit_successful:
@@ -238,7 +241,7 @@ class CreateSavingsView(APIView):
             return JsonResponse(response_dict, status=status.HTTP_201_CREATED)
         else:
             response_dict = dict(
-                message="Payment failed please pay depsoit amount"
+                message="Payment failed please pay deposit amount"
             )
             return JsonResponse(response_dict, status=status.HTTP_400_BAD_REQUEST)
 
