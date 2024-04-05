@@ -9,6 +9,7 @@ urlpatterns=[
     path('password-reset/<str:uid>/<str:token>/',views.PasswordReset,name="password-reset"),
     path('password-reset-done/',views.PasswordResetDone,name="password-reset-done"),
     path('password-expired-token/',views.PasswordResetExpired,name="password-expired-token"),
+    path('user-details/', views.UserDetailsAPIView.as_view(), name='user_details'),
     path('change-details/', views.ChangeUserDetailsAPIView.as_view(), name='change_user_details_api'),
 ]
 
