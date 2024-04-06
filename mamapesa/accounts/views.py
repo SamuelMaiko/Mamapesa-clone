@@ -109,9 +109,8 @@ class UserDetailsAPIView(APIView):
     def get(self, request):
         user = request.user
         serializer = UserSerializer(user)
-        if serializer.is_valid():
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # if serializer.is_valid():
+        return Response(serializer.data, status=status.HTTP_200_OK)
 class ChangeUserDetailsAPIView(APIView):
     authentication_classes = [SessionAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
